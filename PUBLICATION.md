@@ -10,8 +10,10 @@ company** — from documents you upload (PDF / Word / scanned images) or from **
 — and **always answers with inline citations** back to the exact source. A LangGraph supervisor
 coordinates six specialized agents over a retrieval-augmented-generation (RAG) layer backed by
 **Qdrant**, with tools exposed through a dedicated **Model Context Protocol (MCP)** server. Long
-jobs (document ingestion) run asynchronously so the user can keep chatting. The whole stack runs
-with one `docker compose up` and is verified end-to-end.
+jobs (document ingestion) run asynchronously so the user can keep chatting. A full **React** app
+wraps it with auth, **token streaming**, a live "thinking" view, on-the-fly **charts**, and
+per-topic knowledge bases. The whole stack runs with one `docker compose up` and is verified
+end-to-end.
 
 ## The Problem
 
@@ -27,11 +29,16 @@ hallucinate figures and can't show *where* a number came from. FinSight targets 
   writes the answer, and a Critic verifies it is grounded and cited.
 - **Researches the live web** (via MCP tools) for companies not in your documents.
 - **Every claim is cited** `[n]`, mapping to a document page (deep-linked on Cloudinary) or a web URL.
+- **Visualizes on demand** — ask to "plot" or "compare" and a Visualization agent renders bar /
+  line / area / pie charts alongside the answer.
+- **Real application** — sign-up with email verification + Google Sign-In, per-topic knowledge
+  bases (each = a Qdrant collection), storage quota, dark mode, token streaming, a toggleable
+  reasoning view, and the **names of the tools the agent invoked** shown inline.
 
 ## Architecture
 
 ```
-React (planned)  ──REST/WS──►  FastAPI  ──►  LangGraph supervisor + 6 agents
+React UI (Vite+TS) ─REST/SSE─►  FastAPI  ──►  LangGraph supervisor + 6 agents
                                    │                       │ tools (MCP client)
                    Postgres (relational + LangGraph    MCP server :8001
                    checkpointer) · Qdrant (vectors)    (web_search, fetch_url,
@@ -114,18 +121,26 @@ Cloudinary · **MCP** · LangSmith · ruff · pytest · Docker Compose.
 
 ```bash
 cp .env.example .env          # set GOOGLE_API_KEY (free: aistudio.google.com/apikey)
-docker compose up --build     # postgres, qdrant, redis, mcp, api, worker
+docker compose up -d --build  # postgres, qdrant, redis, mcp, api, worker
 docker compose exec api alembic upgrade head
+cd frontend && npm install && npm run dev   # → http://localhost:5173
+```
 
-# 1) upload a document  → async ingestion
-curl -X POST localhost:8000/api/v1/documents -F file=@sample_financial.pdf
-# 2) ask (document-grounded)
-curl -X POST localhost:8000/api/v1/conversations -d '{"title":"demo"}' -H 'content-type: application/json'
-curl -X POST localhost:8000/api/v1/conversations/<id>/messages \
-     -H 'content-type: application/json' -d '{"message":"What was Q3 2024 net revenue and gross margin?"}'
-# 3) benchmark
+A ready-made report ships in the repo at `samples/sample_financial_report.docx`
+(*Nimbus Cloud Inc. FY2024*). Sign up (email verification auto-passes in dev mode), create a topic,
+upload the sample, then try:
+
+| Ask | What to expect |
+|-----|----------------|
+| `What was Q4 2024 revenue and net income?` | Grounded **$1,180M / $262M** with a `[1]` citation |
+| `Plot quarterly revenue for 2024 as a chart` | A line/bar chart (820 → 910 → 1,015 → 1,180) |
+| `Show revenue breakdown by segment as a pie chart` | A pie (Cloud 50% · Data 28% · AI 22%) |
+
+```bash
+# benchmark RAG vs. a no-RAG baseline (LangSmith tracing on)
 docker compose exec api python -m evals.run_eval
 ```
+The full reviewer walkthrough lives in the repo `README.md` → *Quick demo (for reviewers)*.
 
 ## Sample Interaction
 
@@ -144,9 +159,15 @@ the Writer cited the sources and the Critic approved.
 - Keyword retrieval currently uses Qdrant full-text matching; a sparse-vector (BM25) leg would
   strengthen hybrid ranking.
 - A cross-encoder reranker is pluggable but disabled by default to avoid heavy model downloads.
-- React frontend (chat UI + citation viewer) is the next milestone.
+- Gemini's free tier is rate-limited; throttled replies are surfaced in the UI with a retry hint.
+- The whole stack runs locally via Docker Compose; cloud hosting is left as future work.
 
 ## Repository & Quality
 
 - Code: https://github.com/phanminhtai23/finsight-multi-agent
-- 22 unit tests, `ruff`-clean, runs entirely via Docker Compose.
+- `pytest` unit tests, `ruff`-clean, full SOLID layering, runs entirely via Docker Compose.
+
+---
+
+**Tags:** `multi-agent` · `langgraph` · `rag` · `mcp` · `agentic-ai` · `financial-analysis` ·
+`qdrant` · `fastapi` · `react` · `llm` · `google-gemini` · `hybrid-search` · `contextual-retrieval` · `aaidc`

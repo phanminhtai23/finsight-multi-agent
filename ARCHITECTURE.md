@@ -91,7 +91,7 @@ Upload (PDF / DOCX / image) ─► store raw file on Cloudinary (public_id, secu
         ├─ capture locating metadata: page, bbox, section_title
         ├─ chunk  (see 3.2)
         ├─ contextualize + embed
-        ├─ upsert into pgvector + full-text tsvector
+        ├─ upsert into Qdrant (dense vectors + payload for full-text/keyword search)
         └─ document(status=READY) → notify via WebSocket
 ```
 
@@ -156,18 +156,20 @@ documents(
   cloudinary_public_id, cloudinary_url, status,        -- PROCESSING/READY/FAILED
   page_count, error, created_at )
 
-conversations(id, user_id, title, created_at)
-messages(id, conversation_id, role, content, citations jsonb, created_at)
+users(id, email, password_hash, name, avatar_url, tier, storage_used_bytes, ...)
+topics(id, user_id, name, qdrant_collection, created_at)   -- one Qdrant collection per topic
+conversations(id, user_id, topic_id, title, created_at)
+messages(id, conversation_id, role, content, citations jsonb, charts jsonb, tools jsonb, created_at)
 tasks(id, conversation_id, type, status, progress, input, result, error, created_at)
 
 -- LangGraph-managed (do not hand-roll): checkpoints, checkpoint_writes, store
 ```
 
-### Qdrant (vectors) — collection `finsight_chunks`
+### Qdrant (vectors) — one collection per topic (`topic_<id>`)
 ```
 point {
   id:     uuid
-  vector: float[3072]                 # Gemini gemini-embedding-001 (cosine)
+  vector: float[3072]                 # Gemini gemini-embedding-2 (cosine)
   payload {
     document_id, document_title, cloudinary_url, user_id,   # citation + filtering
     content,                                                # display text
@@ -198,7 +200,7 @@ point {
 | ID | Scope |
 |----|-------|
 | M0 | Scaffold, config, Docker, lint/test baseline |
-| M1 | RAG core: ingestion + pgvector + retriever |
+| M1 | RAG core: ingestion + Qdrant + retriever |
 | M2 | Multi-agent graph + LangSmith tracing |
 | M3 | Tools via MCP server (≥3 tools) |
 | M4 | Async tasks: ARQ + Redis pub/sub + WebSocket |
