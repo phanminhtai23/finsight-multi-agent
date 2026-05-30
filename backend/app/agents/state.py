@@ -1,39 +1,42 @@
 """Shared LangGraph state for the multi-agent graph.
 
-This is the typed channel every agent node reads from / writes to. It will grow as agents
-are implemented in M2, but the shape is fixed here so nodes stay decoupled.
+Kept JSON-serializable (plain dicts/lists/primitives) so the Postgres checkpointer can
+persist and resume each conversation thread.
 """
 
 from operator import add
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, TypedDict
 
 from langchain_core.messages import BaseMessage
 
 
-class Citation(TypedDict):
-    document_title: str
+class EvidenceItem(TypedDict, total=False):
+    content: str
+    document_id: str
+    document_title: str | None
     page: int | None
-    cloudinary_url: str | None
+    url: str | None
+    source: str  # "documents" | "web"
+
+
+class CitationItem(TypedDict, total=False):
+    index: int
+    document_id: str
+    document_title: str | None
+    page: int | None
+    url: str | None
     snippet: str
 
 
-class Evidence(TypedDict):
-    content: str
-    citation: Citation
-    score: float
-
-
 class AgentState(TypedDict, total=False):
-    # Conversation messages (reducer appends).
     messages: Annotated[list[BaseMessage], add]
-    # Planner output: ordered sub-questions.
-    sub_questions: list[str]
-    # Retrieval / research evidence gathered so far (reducer appends).
-    evidence: Annotated[list[Evidence], add]
-    # Supervisor routing decision.
-    next_agent: str
-    # Final composed answer + citations.
+    question: str
+    document_ids: list[str] | None
+    needs_web: bool
+    evidence: list[EvidenceItem]
+    analysis: str
     answer: str
-    citations: list[Citation]
-    # Free-form scratchpad for inter-agent notes.
-    scratchpad: dict[str, Any]
+    citations: list[CitationItem]
+    critique: str
+    approved: bool
+    revisions: int

@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
+from app.core.checkpointer import close_checkpointer
 from app.core.config import get_settings
 from app.core.db import dispose_engine, init_engine
 from app.core.logging import configure_logging, get_logger
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     yield
     await close_arq_pool()
     await close_qdrant()
+    await close_checkpointer()
     await dispose_engine()
     log.info("shutdown", app=settings.app_name)
 

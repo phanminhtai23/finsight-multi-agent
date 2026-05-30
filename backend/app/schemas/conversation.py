@@ -3,11 +3,23 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.qa import CitationOut
 
 
 class ConversationCreate(BaseModel):
     title: str | None = None
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    document_ids: list[uuid.UUID] | None = None
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
 
 
 class ConversationOut(BaseModel):

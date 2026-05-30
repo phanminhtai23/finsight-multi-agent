@@ -13,7 +13,9 @@ from arq.connections import ArqRedis
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.graph import build_graph
 from app.core.cache import create_redis_pool
+from app.core.checkpointer import get_checkpointer
 from app.core.config import Settings, get_settings
 from app.core.db import get_session
 from app.core.llm import get_embedder, get_text_generator
@@ -25,6 +27,7 @@ from app.rag.retrieval.qdrant_backend import QdrantSearchBackend
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.task_repository import TaskRepository
+from app.services.agent_service import AgentService
 from app.services.events import EventPublisher
 from app.services.ingestion_service import IngestionService
 from app.services.qa_service import QAService
@@ -98,3 +101,28 @@ def get_ingestion_service(document_repo: DocumentRepoDep) -> IngestionService:
 
 QAServiceDep = Annotated[QAService, Depends(get_qa_service)]
 IngestionServiceDep = Annotated[IngestionService, Depends(get_ingestion_service)]
+
+
+# The compiled multi-agent graph is stateless (the checkpointer holds per-thread state),
+# so it is built once and shared across requests.
+_compiled_graph: object | None = None
+
+
+async def get_compiled_graph() -> object:
+    global _compiled_graph
+    if _compiled_graph is None:
+        settings = get_settings()
+        backend = QdrantSearchBackend(
+            get_qdrant_client(settings), collection=settings.qdrant_collection
+        )
+        retriever = HybridRetriever(backend, get_embedder())
+        checkpointer = await get_checkpointer(settings)
+        _compiled_graph = build_graph(retriever, get_text_generator(), checkpointer=checkpointer)
+    return _compiled_graph
+
+
+async def get_agent_service(conversation_repo: ConversationRepoDep) -> AgentService:
+    return AgentService(await get_compiled_graph(), conversation_repo)
+
+
+AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]

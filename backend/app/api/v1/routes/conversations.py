@@ -4,8 +4,15 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.deps import ConversationRepoDep
-from app.schemas.conversation import ConversationCreate, ConversationOut, MessageOut
+from app.api.deps import AgentServiceDep, ConversationRepoDep
+from app.schemas.conversation import (
+    ChatRequest,
+    ChatResponse,
+    ConversationCreate,
+    ConversationOut,
+    MessageOut,
+)
+from app.schemas.qa import CitationOut
 
 router = APIRouter()
 
@@ -16,6 +23,21 @@ async def create_conversation(
 ) -> ConversationOut:
     conversation = await repo.create(title=body.title)
     return ConversationOut.model_validate(conversation)
+
+
+@router.post("/{conversation_id}/messages", response_model=ChatResponse)
+async def post_message(
+    conversation_id: uuid.UUID,
+    body: ChatRequest,
+    repo: ConversationRepoDep,
+    agents: AgentServiceDep,
+) -> ChatResponse:
+    """Send a message; the multi-agent graph answers with grounded citations."""
+    if await repo.get(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    doc_ids = [str(d) for d in body.document_ids] if body.document_ids else None
+    answer, citations = await agents.chat(conversation_id, body.message, document_ids=doc_ids)
+    return ChatResponse(answer=answer, citations=[CitationOut(**c) for c in citations])
 
 
 @router.get("/{conversation_id}/messages", response_model=list[MessageOut])

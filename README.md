@@ -123,10 +123,10 @@ frontend/            React + Vite + TS
 ## 🗺️ Roadmap
 
 - [x] M0 — Scaffold, config, Docker, lint/test baseline
-- [ ] M1 — RAG core (ingestion + pgvector + retriever)
-- [ ] M2 — Multi-agent graph (supervisor + agents) + LangSmith
-- [ ] M3 — Tools via MCP server
-- [ ] M4 — Async tasks (ARQ + Redis pub/sub + WebSocket)
+- [x] M1 — RAG core (ingestion + Qdrant + hybrid retriever + cited QA)
+- [x] M2 — Multi-agent graph (supervisor + agents) on LangGraph + Postgres checkpointer
+- [ ] M3 — Tools via MCP server (live web/financial research)
+- [x] M4 — Async tasks (ARQ + Redis pub/sub + WebSocket)  *(ingestion path)*
 - [ ] M5 — React frontend
 - [ ] M6 — Skills, caching, evals, polish & publish
 
