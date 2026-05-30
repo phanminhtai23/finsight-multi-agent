@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/phanminhtai23/finsight-multi-agent/main/frontend/public/logo.svg" width="96" alt="FinSight logo" />
+</p>
+
 # FinSight — A Multi-Agent Financial Research Assistant with RAG, MCP Tools, and Grounded Citations
 
 > **AAIDC Module 2 — Build Your Multi-Agent System.**
