@@ -31,9 +31,9 @@ keep the codebase SOLID.
 └──────────┘                                              │
  (LangGraph PostgresSaver + PostgresStore = memory)       │
 ┌────────────┐                                  ┌────────▼───────────────┐
-│ Cloudinary │  raw files + page images         │   MCP Server (tools)    │
-└────────────┘                                  │ rag_search, web_search, │
-                                                │ fetch_url, fin_calc     │
+│ Cloudinary │  raw files + page images         │   MCP Server (tools)     │
+└────────────┘                                  │ web_search, fetch_url,   │
+                                                │ company_financials, calc │
    LangSmith: tracing + evaluation over the whole graph
 ```
 
@@ -84,7 +84,7 @@ handled inside the Analyst rather than as separate agents.
 | Agent | Responsibility | Tools |
 |-------|----------------|-------|
 | Supervisor | Route between agents, decide when the answer is complete | — |
-| Retrieval | Hybrid search + rerank in pgvector; return evidence + citation metadata | `rag_search` |
+| Retrieval | Hybrid search in Qdrant; return evidence + citation metadata (internal tool) | RAG retriever |
 | Market Research | Live company financials / news via web & financial APIs | `web_search`, `fetch_url`, `company_financials` |
 | Analyst | Synthesize evidence, compute ratios, compare companies/periods, flag trends | `financial_calculator` |
 | Writer | Compose the final answer with inline `[n]` citation markers | — |

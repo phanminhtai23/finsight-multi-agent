@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     qdrant_api_key: str | None = None
     qdrant_collection: str = "finsight_chunks"
 
+    # --- MCP tool server ---
+    mcp_server_url: str = "http://localhost:8001/mcp"
+
     # --- LLM / embeddings (Google Gemini free tier via AI Studio) ---
     llm_provider: Literal["google"] = "google"
     google_api_key: str | None = None

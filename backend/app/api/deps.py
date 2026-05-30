@@ -14,6 +14,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.graph import build_graph
+from app.agents.mcp_web import McpWebSearch
 from app.core.cache import create_redis_pool
 from app.core.checkpointer import get_checkpointer
 from app.core.config import Settings, get_settings
@@ -117,7 +118,10 @@ async def get_compiled_graph() -> object:
         )
         retriever = HybridRetriever(backend, get_embedder())
         checkpointer = await get_checkpointer(settings)
-        _compiled_graph = build_graph(retriever, get_text_generator(), checkpointer=checkpointer)
+        web_search = McpWebSearch(settings.mcp_server_url)
+        _compiled_graph = build_graph(
+            retriever, get_text_generator(), web_search, checkpointer=checkpointer
+        )
     return _compiled_graph
 
 

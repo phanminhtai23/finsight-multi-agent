@@ -38,6 +38,15 @@ services:
       timeout: 3s
       retries: 5
 
+  mcp:
+    build: ./backend
+    env_file: .env
+    command: python -m mcp_server.server
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+
   api:
     build: ./backend
     env_file: .env
@@ -50,6 +59,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+      mcp:
+        condition: service_started
     volumes:
       - ./backend:/app
 
@@ -64,6 +75,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+      mcp:
+        condition: service_started
     volumes:
       - ./backend:/app
 
