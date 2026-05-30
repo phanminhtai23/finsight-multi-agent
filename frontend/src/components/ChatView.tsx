@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, streamChat } from "../lib/api";
 import type { Citation, Message } from "../lib/types";
-import { Button } from "./ui";
+import { Button, Spinner } from "./ui";
 
 interface LocalMsg {
   role: string;
@@ -52,7 +52,17 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   const [streaming, setStreaming] = useState(false);
   const [liveThinking, setLiveThinking] = useState("");
   const [liveAnswer, setLiveAnswer] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<number | null>(null);
+
+  function stopTimer() {
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+  useEffect(() => stopTimer, []);
 
   useEffect(() => {
     api.get<Message[]>(`/conversations/${conversationId}/messages`).then((r) =>
@@ -76,6 +86,9 @@ export function ChatView({ conversationId }: { conversationId: string }) {
     setStreaming(true);
     setLiveThinking("");
     setLiveAnswer("");
+    setElapsed(0);
+    const start = Date.now();
+    timerRef.current = window.setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
 
     let answer = "";
     let think = "";
@@ -89,6 +102,7 @@ export function ChatView({ conversationId }: { conversationId: string }) {
     } catch {
       answer = answer || "⚠️ Streaming failed.";
     }
+    stopTimer();
     setMessages((m) => [
       ...m,
       { role: "assistant", content: answer, citations: cites, thinking: think || undefined },
@@ -127,6 +141,15 @@ export function ChatView({ conversationId }: { conversationId: string }) {
 
           {streaming && (
             <div className="max-w-[90%]">
+              <div className="mb-2 flex items-center gap-2 text-xs text-neutral-400">
+                <Spinner className="h-3.5 w-3.5" />
+                <span>
+                  {liveAnswer ? "Generating" : liveThinking ? "Thinking" : "Researching"}…
+                </span>
+                <span className="font-mono tabular-nums text-neutral-500">
+                  {elapsed.toFixed(1)}s
+                </span>
+              </div>
               {liveThinking && (
                 <div className="mb-2 rounded-lg bg-neutral-100 px-3 py-2 text-sm dark:bg-neutral-800/60">
                   <div className="text-xs font-medium text-neutral-500">💭 Thinking…</div>
@@ -135,9 +158,11 @@ export function ChatView({ conversationId }: { conversationId: string }) {
                   </p>
                 </div>
               )}
-              <div className="whitespace-pre-wrap rounded-2xl bg-neutral-100 px-4 py-3 dark:bg-neutral-800">
-                {liveAnswer || <span className="text-neutral-400">…</span>}
-              </div>
+              {liveAnswer && (
+                <div className="whitespace-pre-wrap rounded-2xl bg-neutral-100 px-4 py-3 dark:bg-neutral-800">
+                  {liveAnswer}
+                </div>
+              )}
             </div>
           )}
         </div>

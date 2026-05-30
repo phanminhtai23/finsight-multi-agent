@@ -41,39 +41,60 @@ class StreamingChatService:
     ) -> AsyncIterator[dict]:
         evidence: list[EvidenceItem] = []
 
-        retriever = self._make_retriever(collection)
-        if retriever is not None:
-            chunks = await retriever.retrieve(message)
-            evidence += [
-                EvidenceItem(
-                    content=c.content,
-                    document_id=c.document_id,
-                    document_title=c.document_title,
-                    page=c.page,
-                    url=c.cloudinary_url,
-                    source="documents",
-                )
-                for c in chunks
-            ]
-        # No topic attached → fall back to live web research.
-        if collection is None and self._web is not None:
-            evidence += list(await self._web.search(message))
+        # Retrieval is best-effort: a transient failure (e.g. embedding rate limit) should not
+        # blank out the chat — we just answer with whatever evidence we have (possibly none).
+        try:
+            retriever = self._make_retriever(collection)
+            if retriever is not None:
+                chunks = await retriever.retrieve(message)
+                evidence += [
+                    EvidenceItem(
+                        content=c.content,
+                        document_id=c.document_id,
+                        document_title=c.document_title,
+                        page=c.page,
+                        url=c.cloudinary_url,
+                        source="documents",
+                    )
+                    for c in chunks
+                ]
+            # No topic attached → fall back to live web research.
+            if collection is None and self._web is not None:
+                evidence += list(await self._web.search(message))
+        except Exception:  # noqa: BLE001
+            pass
 
         yield {"type": "evidence", "count": len(evidence)}
         evidence_str = format_evidence(evidence)
 
         if thinking:
-            prompt = prompts.THINKING.format(question=message, evidence=evidence_str)
-            async for token in stream_chat(self._model, prompt):
-                yield {"type": "thinking", "token": token}
+            try:
+                prompt = prompts.THINKING.format(question=message, evidence=evidence_str)
+                async for token in stream_chat(self._model, prompt):
+                    yield {"type": "thinking", "token": token}
+            except Exception:  # noqa: BLE001 - thinking is best-effort
+                pass
 
         parts: list[str] = []
-        prompt = prompts.STREAM_ANSWER.format(question=message, evidence=evidence_str)
-        async for token in stream_chat(self._model, prompt):
-            parts.append(token)
-            yield {"type": "token", "token": token}
+        try:
+            prompt = prompts.STREAM_ANSWER.format(question=message, evidence=evidence_str)
+            async for token in stream_chat(self._model, prompt):
+                parts.append(token)
+                yield {"type": "token", "token": token}
+        except Exception as exc:  # noqa: BLE001 - surface a friendly message to the UI
+            detail = str(exc)
+            fallback = (
+                "The model is rate-limited right now (Gemini free tier) — please try again shortly."
+                if "429" in detail or "RESOURCE_EXHAUSTED" in detail
+                else "Sorry — something went wrong generating the answer. Please try again."
+            )
+            parts.append(fallback)
+            yield {"type": "token", "token": fallback}
 
         answer = "".join(parts).strip()
+        if not answer:
+            answer = "I didn't get a response this time — please try again."
+            yield {"type": "token", "token": answer}
         citations = [dict(c) for c in build_citations(evidence)]
         yield {"type": "citations", "citations": citations}
 
