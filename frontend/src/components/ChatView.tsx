@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { api, streamChat } from "../lib/api";
 import type { ChartSpec, Citation, Message } from "../lib/types";
 import { Chart } from "./Chart";
@@ -22,6 +23,20 @@ const SUGGESTIONS = [
 
 function Avatar() {
   return <Logo className="mt-0.5 h-8 w-8 shrink-0" />;
+}
+
+function UserAvatar() {
+  const { user } = useAuth();
+  if (user?.avatar_url) {
+    return (
+      <img src={user.avatar_url} className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover" />
+    );
+  }
+  return (
+    <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">
+      {(user?.full_name ?? user?.email ?? "U")[0]?.toUpperCase()}
+    </div>
+  );
 }
 
 function Sources({ citations }: { citations: Citation[] }) {
@@ -207,10 +222,11 @@ export function ChatView({
 
           {messages.map((m, i) =>
             m.role === "user" ? (
-              <div key={i} className="flex justify-end">
+              <div key={i} className="flex justify-end gap-3">
                 <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-2.5 text-[15px] text-white shadow-sm">
                   {m.content}
                 </div>
+                <UserAvatar />
               </div>
             ) : (
               <div key={i} className="flex gap-3">

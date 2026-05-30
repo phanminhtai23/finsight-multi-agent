@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChatView } from "../components/ChatView";
+import { Logo } from "../components/Logo";
 import { Sidebar } from "../components/Sidebar";
 import { TopicsManager } from "../components/TopicsManager";
 import { Button } from "../components/ui";
@@ -30,13 +31,28 @@ export default function Workspace() {
           dataVersion={version}
         />
       ) : (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          title="Open sidebar"
-          className="absolute left-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-lg border border-neutral-200 bg-white text-neutral-500 shadow-sm hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
-        >
-          »
-        </button>
+        <div className="flex h-full w-14 shrink-0 flex-col items-center gap-3 border-r border-neutral-200 bg-neutral-50 py-3 dark:border-neutral-800 dark:bg-neutral-950">
+          <button onClick={() => setSidebarOpen(true)} title="Expand sidebar">
+            <Logo className="h-8 w-8" />
+          </button>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Expand sidebar"
+            className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            »
+          </button>
+          <button
+            onClick={() => {
+              setSelected(null);
+              setSidebarOpen(true);
+            }}
+            title="New conversation"
+            className="grid h-9 w-9 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            ＋
+          </button>
+        </div>
       )}
 
       <main className="flex-1 overflow-hidden">
