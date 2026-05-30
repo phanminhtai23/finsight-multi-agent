@@ -10,24 +10,23 @@ Compiled with a checkpointer so each conversation thread is durably persisted/re
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agents.nodes import FinSightAgents
+from app.agents.nodes import FinSightAgents, RetrieverFactory
 from app.agents.state import AgentState
 from app.agents.web import WebSearch
 from app.rag.ports import TextGenerator
-from app.rag.retrieval.hybrid import HybridRetriever
 
 __all__ = ["AgentState", "build_graph"]
 
 
 def build_graph(
-    retriever: HybridRetriever,
+    make_retriever: RetrieverFactory,
     generator: TextGenerator,
     web_search: WebSearch | None = None,
     *,
     checkpointer: object | None = None,
     max_revisions: int = 2,
 ):
-    agents = FinSightAgents(retriever, generator, web_search, max_revisions=max_revisions)
+    agents = FinSightAgents(make_retriever, generator, web_search, max_revisions=max_revisions)
 
     graph = StateGraph(AgentState)
     graph.add_node("supervisor", agents.supervisor)

@@ -33,12 +33,14 @@ from app.rag.retrieval.qdrant_backend import QdrantSearchBackend
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.task_repository import TaskRepository
+from app.repositories.topic_repository import TopicRepository
 from app.repositories.user_repository import UserRepository
 from app.services.agent_service import AgentService
 from app.services.auth_service import AuthService
 from app.services.events import EventPublisher
 from app.services.ingestion_service import IngestionService
 from app.services.qa_service import QAService
+from app.services.topic_service import TopicService
 from app.skills.base import SkillRegistry
 from app.skills.library import default_registry
 
@@ -118,18 +120,23 @@ IngestionServiceDep = Annotated[IngestionService, Depends(get_ingestion_service)
 _compiled_graph: object | None = None
 
 
+def _make_retriever(collection: str | None) -> HybridRetriever | None:
+    """Build a topic-scoped retriever for a Qdrant collection (None = skip document RAG)."""
+    if not collection:
+        return None
+    settings = get_settings()
+    backend = QdrantSearchBackend(get_qdrant_client(settings), collection=collection)
+    return HybridRetriever(backend, get_embedder())
+
+
 async def get_compiled_graph() -> object:
     global _compiled_graph
     if _compiled_graph is None:
         settings = get_settings()
-        backend = QdrantSearchBackend(
-            get_qdrant_client(settings), collection=settings.qdrant_collection
-        )
-        retriever = HybridRetriever(backend, get_embedder())
         checkpointer = await get_checkpointer(settings)
         web_search = McpWebSearch(settings.mcp_server_url)
         _compiled_graph = build_graph(
-            retriever, get_text_generator(), web_search, checkpointer=checkpointer
+            _make_retriever, get_text_generator(), web_search, checkpointer=checkpointer
         )
     return _compiled_graph
 
@@ -190,3 +197,20 @@ async def get_current_user(
 
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+
+# --- Topics ---
+def get_topic_repo(session: SessionDep) -> TopicRepository:
+    return TopicRepository(session)
+
+
+TopicRepoDep = Annotated[TopicRepository, Depends(get_topic_repo)]
+
+
+def get_topic_service(
+    topic_repo: TopicRepoDep, document_repo: DocumentRepoDep, settings: SettingsDep
+) -> TopicService:
+    return TopicService(topic_repo, document_repo, get_qdrant_client(settings), settings)
+
+
+TopicServiceDep = Annotated[TopicService, Depends(get_topic_service)]

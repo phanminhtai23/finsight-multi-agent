@@ -34,8 +34,10 @@ class FakeGen:
 
 
 async def test_graph_produces_cited_answer():
-    graph = build_graph(FakeRetriever(), FakeGen())
-    result = await graph.ainvoke({"question": "What was revenue?", "messages": []})
+    graph = build_graph(lambda _c: FakeRetriever(), FakeGen())
+    result = await graph.ainvoke(
+        {"question": "What was revenue?", "messages": [], "collection": "t"}
+    )
 
     assert "[1]" in result["answer"]
     assert result["approved"] is True
@@ -59,6 +61,6 @@ async def test_graph_routes_to_web_when_needed():
                 return "NEEDS_WEB: yes"
             return await super().generate(prompt)
 
-    graph = build_graph(FakeRetriever(), WebGen(), WebSearch())
-    await graph.ainvoke({"question": "current stock price?", "messages": []})
+    graph = build_graph(lambda _c: FakeRetriever(), WebGen(), WebSearch())
+    await graph.ainvoke({"question": "current stock price?", "messages": [], "collection": "t"})
     assert calls["web"] == 1

@@ -4,13 +4,16 @@ Each node is a small, single-responsibility step that reads and returns a partia
 ``AgentState``. Collaborators (retriever, LLM, web search) are injected.
 """
 
-import uuid
+from collections.abc import Callable
 
 from app.agents import prompts
 from app.agents.state import AgentState, CitationItem, EvidenceItem
 from app.agents.web import NullWebSearch, WebSearch
 from app.rag.ports import TextGenerator
 from app.rag.retrieval.hybrid import HybridRetriever
+
+# Given a topic's collection name (or None), return a retriever for it (or None to skip RAG).
+RetrieverFactory = Callable[[str | None], HybridRetriever | None]
 
 _SNIPPET = 240
 
@@ -48,13 +51,13 @@ def build_citations(evidence: list[EvidenceItem]) -> list[CitationItem]:
 class FinSightAgents:
     def __init__(
         self,
-        retriever: HybridRetriever,
+        make_retriever: RetrieverFactory,
         generator: TextGenerator,
         web_search: WebSearch | None = None,
         *,
         max_revisions: int = 2,
     ) -> None:
-        self._retriever = retriever
+        self._make_retriever = make_retriever
         self._gen = generator
         self._web = web_search or NullWebSearch()
         self._max_revisions = max_revisions
@@ -67,8 +70,10 @@ class FinSightAgents:
         return {"needs_web": needs_web, "revisions": state.get("revisions", 0)}
 
     async def retrieval(self, state: AgentState) -> dict:
-        doc_ids = [uuid.UUID(d) for d in (state.get("document_ids") or [])] or None
-        chunks = await self._retriever.retrieve(state["question"], document_ids=doc_ids)
+        retriever = self._make_retriever(state.get("collection"))
+        if retriever is None:
+            return {}  # conversation has no topic/data attached → skip document RAG
+        chunks = await retriever.retrieve(state["question"])
         found = [
             EvidenceItem(
                 content=c.content,

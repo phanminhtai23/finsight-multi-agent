@@ -13,15 +13,27 @@ class ConversationRepository:
         self.session = session
 
     async def create(
-        self, *, user_id: uuid.UUID | None = None, title: str | None = None
+        self,
+        *,
+        user_id: uuid.UUID | None = None,
+        title: str | None = None,
+        topic_id: uuid.UUID | None = None,
     ) -> Conversation:
-        conversation = Conversation(user_id=user_id, title=title)
+        conversation = Conversation(user_id=user_id, title=title, topic_id=topic_id)
         self.session.add(conversation)
         await self.session.flush()
         return conversation
 
     async def get(self, conversation_id: uuid.UUID) -> Conversation | None:
         return await self.session.get(Conversation, conversation_id)
+
+    async def list_for_user(self, user_id: uuid.UUID) -> list[Conversation]:
+        stmt = (
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .order_by(Conversation.created_at.desc())
+        )
+        return list((await self.session.scalars(stmt)).all())
 
     async def add_message(
         self,

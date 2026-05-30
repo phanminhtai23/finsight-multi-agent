@@ -3,6 +3,7 @@
 import enum
 import uuid
 
+from sqlalchemy import BigInteger, ForeignKey
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,8 +20,14 @@ class Document(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "documents"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(default=None, index=True)
+    topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("topics.id", ondelete="CASCADE"), default=None, index=True
+    )
     title: Mapped[str]
     file_type: Mapped[str]
+    source_type: Mapped[str] = mapped_column(default="file")  # "file" | "url"
+    source_url: Mapped[str | None] = mapped_column(default=None)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     company: Mapped[str | None] = mapped_column(default=None, index=True)
     fiscal_period: Mapped[str | None] = mapped_column(default=None)
 

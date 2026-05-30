@@ -38,6 +38,10 @@ class QdrantVectorStore:
         if points:
             await self._client.upsert(self._collection, points=points)
 
+    async def delete_collection(self) -> None:
+        if await self._client.collection_exists(self._collection):
+            await self._client.delete_collection(self._collection)
+
     async def delete_by_document(self, document_id: str) -> None:
         await self._client.delete(
             self._collection,

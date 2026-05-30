@@ -1,5 +1,7 @@
 """Data access for documents."""
 
+from __future__ import annotations
+
 import uuid
 
 from sqlalchemy import select
@@ -25,6 +27,17 @@ class DocumentRepository:
         if user_id is not None:
             stmt = stmt.where(Document.user_id == user_id)
         return list((await self.session.scalars(stmt)).all())
+
+    async def list_by_topic(self, topic_id: uuid.UUID) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(Document.topic_id == topic_id)
+            .order_by(Document.created_at.desc())
+        )
+        return list((await self.session.scalars(stmt)).all())
+
+    async def delete(self, document: Document) -> None:
+        await self.session.delete(document)
 
     async def set_status(
         self,

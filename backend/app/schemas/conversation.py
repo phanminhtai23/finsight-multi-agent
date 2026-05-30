@@ -10,6 +10,7 @@ from app.schemas.qa import CitationOut
 
 class ConversationCreate(BaseModel):
     title: str | None = None
+    topic_id: uuid.UUID | None = None
 
 
 class ChatRequest(BaseModel):
@@ -27,6 +28,7 @@ class ConversationOut(BaseModel):
 
     id: uuid.UUID
     title: str | None = None
+    topic_id: uuid.UUID | None = None
     created_at: datetime
 
 

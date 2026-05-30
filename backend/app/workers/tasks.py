@@ -16,6 +16,8 @@ from app.core.llm import get_embedder, get_text_generator
 from app.core.qdrant import get_qdrant_client
 from app.models.document import DocumentStatus
 from app.models.task import TaskStatus
+from app.models.topic import Topic
+from app.models.user import User
 from app.rag.indexing.qdrant_store import QdrantVectorStore
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.task_repository import TaskRepository
@@ -47,23 +49,11 @@ async def ingest_document(ctx: dict[str, Any], task_id: str, document_id: str) -
     publisher = EventPublisher(redis_client)
     sessionmaker = get_sessionmaker()
     tid, did = uuid.UUID(task_id), uuid.UUID(document_id)
-
-    store = QdrantVectorStore(
-        get_qdrant_client(settings),
-        collection=settings.qdrant_collection,
-        dim=settings.embedding_dim,
-    )
     local_path: str | None = None
 
     async with sessionmaker() as session:
         documents = DocumentRepository(session)
         tasks = TaskRepository(session)
-        service = IngestionService(
-            document_repo=documents,
-            vector_store=store,
-            embedder=get_embedder(),
-            text_generator=get_text_generator(),
-        )
 
         async def on_progress(pct: int, message: str) -> None:
             await tasks.update(tid, status=TaskStatus.RUNNING, progress=pct)
@@ -72,18 +62,49 @@ async def ingest_document(ctx: dict[str, Any], task_id: str, document_id: str) -
 
         try:
             document = await documents.get(did)
-            if document is None or not document.cloudinary_url:
-                raise RuntimeError("Document or its source URL not found")
+            if document is None:
+                raise RuntimeError("Document not found")
 
-            await on_progress(5, "Fetching source file")
-            local_path = await _fetch_to_temp(document.cloudinary_url, f".{document.file_type}")
-
-            count = await service.ingest(
-                document_id=did,
-                local_path=local_path,
-                title=document.title,
-                on_progress=on_progress,
+            # Resolve the target Qdrant collection (per-topic, else default).
+            collection = settings.qdrant_collection
+            if document.topic_id:
+                topic = await session.get(Topic, document.topic_id)
+                if topic:
+                    collection = topic.qdrant_collection
+            store = QdrantVectorStore(
+                get_qdrant_client(settings), collection=collection, dim=settings.embedding_dim
             )
+            service = IngestionService(
+                document_repo=documents,
+                vector_store=store,
+                embedder=get_embedder(),
+                text_generator=get_text_generator(),
+            )
+
+            if document.source_type == "url":
+                count, size = await service.ingest_url(
+                    document_id=did,
+                    url=document.source_url,
+                    title=document.title,
+                    on_progress=on_progress,
+                )
+                document.size_bytes = size
+                if document.user_id:  # account web-page size against the user's quota
+                    user = await session.get(User, document.user_id)
+                    if user:
+                        user.storage_used_bytes = (user.storage_used_bytes or 0) + size
+            else:
+                if not document.cloudinary_url:
+                    raise RuntimeError("Document has no source URL")
+                await on_progress(5, "Fetching source file")
+                local_path = await _fetch_to_temp(document.cloudinary_url, f".{document.file_type}")
+                count = await service.ingest(
+                    document_id=did,
+                    local_path=local_path,
+                    title=document.title,
+                    on_progress=on_progress,
+                )
+
             await tasks.update(
                 tid, status=TaskStatus.SUCCEEDED, progress=100, result={"chunks": count}
             )

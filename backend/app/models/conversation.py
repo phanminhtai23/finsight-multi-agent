@@ -18,6 +18,9 @@ class Conversation(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "conversations"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(default=None, index=True)
+    topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), default=None, index=True
+    )
     title: Mapped[str | None] = mapped_column(default=None)
 
     messages: Mapped[list["Message"]] = relationship(

@@ -20,6 +20,7 @@ from app.schemas.auth import (
     UpdateProfileRequest,
     UserOut,
 )
+from app.schemas.topic import UsageOut
 from app.services.auth_service import AuthError
 
 router = APIRouter()
@@ -27,6 +28,18 @@ router = APIRouter()
 
 def _unauthorized(exc: AuthError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+
+
+@router.get("/me/usage", response_model=UsageOut)
+async def usage(user: CurrentUserDep, settings: SettingsDep) -> UsageOut:
+    quota = settings.storage_quota_mb * 1024 * 1024
+    used = user.storage_used_bytes or 0
+    return UsageOut(
+        used_bytes=used,
+        quota_bytes=quota,
+        quota_mb=settings.storage_quota_mb,
+        percent=round(used / quota * 100, 2) if quota else 0.0,
+    )
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)

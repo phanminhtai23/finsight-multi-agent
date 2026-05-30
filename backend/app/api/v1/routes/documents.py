@@ -8,7 +8,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.api.deps import ArqDep, DocumentRepoDep, SessionDep, SettingsDep, TaskRepoDep
+from app.api.deps import (
+    ArqDep,
+    CurrentUserDep,
+    DocumentRepoDep,
+    SessionDep,
+    SettingsDep,
+    TaskRepoDep,
+    TopicRepoDep,
+    TopicServiceDep,
+)
 from app.models.document import Document, DocumentStatus
 from app.models.task import TaskType
 from app.rag.ingestion.storage import get_file_storage
@@ -63,3 +72,24 @@ async def get_document(document_id: uuid.UUID, document_repo: DocumentRepoDep) -
 @router.get("", response_model=list[DocumentOut])
 async def list_documents(document_repo: DocumentRepoDep) -> list[DocumentOut]:
     return [DocumentOut.model_validate(d) for d in await document_repo.list()]
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    document_id: uuid.UUID,
+    user: CurrentUserDep,
+    document_repo: DocumentRepoDep,
+    topic_repo: TopicRepoDep,
+    topic_service: TopicServiceDep,
+    session: SessionDep,
+) -> None:
+    document = await document_repo.get(document_id)
+    if document is None or document.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if document.topic_id is None:
+        raise HTTPException(status_code=400, detail="Document is not attached to a topic")
+    topic = await topic_repo.get(document.topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    await topic_service.delete_document(document, topic, user)
+    await session.commit()

@@ -31,7 +31,7 @@ class CitationItem(TypedDict, total=False):
 class AgentState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], add]
     question: str
-    document_ids: list[str] | None
+    collection: str | None  # topic's Qdrant collection to retrieve from (None = skip RAG)
     needs_web: bool
     evidence: list[EvidenceItem]
     analysis: str

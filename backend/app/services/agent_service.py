@@ -18,13 +18,13 @@ class AgentService:
         conversation_id: uuid.UUID,
         message: str,
         *,
-        document_ids: list[str] | None = None,
+        collection: str | None = None,
     ) -> tuple[str, list[CitationItem]]:
         # Reset per-turn transient fields; ``messages`` is appended via its reducer.
         initial = {
             "messages": [HumanMessage(content=message)],
             "question": message,
-            "document_ids": document_ids,
+            "collection": collection,
             "evidence": [],
             "analysis": "",
             "answer": "",
