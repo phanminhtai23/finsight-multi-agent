@@ -24,13 +24,44 @@ It is built around a LangGraph supervisor orchestrating a team of specialized ag
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design, agent roles, communication flows, RAG pipeline and data model.
 
-```
-React (Vite+TS)  ──REST/WS──►  FastAPI  ──►  LangGraph supervisor + agents
-                                  │                    │ tools
-                  Postgres (relational + memory)   MCP server (web/RAG/calc)
-                  Qdrant (vectors) · Redis (cache/pubsub/queue)
-                          ARQ workers (async ingestion & research)
-                          Cloudinary (raw file storage)   LangSmith (tracing)
+```mermaid
+flowchart TD
+    U["🖥️ React UI / API client"] -->|"REST + WebSocket"| API["⚡ FastAPI<br/>(RESTful · SOLID)"]
+
+    subgraph AGENTS["🤖 LangGraph multi-agent graph"]
+        direction TB
+        SUP(["🧭 Supervisor<br/>triage &amp; route"])
+        RET["📚 Retrieval<br/>(RAG)"]
+        MR["🌐 Market Research"]
+        AN["📊 Analyst"]
+        WR["✍️ Writer<br/>+ citations"]
+        CR["🔎 Critic<br/>grounding check"]
+        SUP --> RET --> AN --> WR --> CR
+        SUP --> MR --> AN
+        CR -.->|"revise ≤2"| AN
+    end
+    API --> SUP
+
+    subgraph DATA["🗄️ Datastores"]
+        QD[("Qdrant<br/>vectors")]
+        PG[("Postgres<br/>relational + checkpointer")]
+        RD[("Redis<br/>cache · pubsub · queue")]
+    end
+
+    subgraph EXT["🧰 Tools &amp; services"]
+        MCP["🔌 MCP server<br/>web_search · fetch_url<br/>company_financials · calculator"]
+        CL["☁️ Cloudinary<br/>raw files"]
+        LS["📈 LangSmith<br/>tracing &amp; eval"]
+    end
+
+    RET --> QD
+    MR -->|"MCP client"| MCP
+    API --> PG
+    API --> RD
+    API --> WK["⏳ ARQ worker<br/>async ingestion"]
+    WK --> CL
+    WK --> QD
+    API -.->|"trace"| LS
 ```
 
 ## 🧰 Tech Stack
@@ -38,7 +69,7 @@ React (Vite+TS)  ──REST/WS──►  FastAPI  ──►  LangGraph superviso
 | Layer | Tech |
 |-------|------|
 | Orchestration | LangGraph, LangChain |
-| LLM / Embeddings | Google Gemini — chat (e.g. `gemini-2.0-flash`) + `gemini-embedding-2` (3072-d) |
+| LLM / Embeddings | Google Gemini — chat (e.g. `gemini-3.1-flash-lite-preview`) + `gemini-embedding-2` (3072-d) |
 | Vector store | Qdrant |
 | Relational store | PostgreSQL |
 | Tools protocol | Model Context Protocol (MCP) server |
@@ -53,24 +84,53 @@ React (Vite+TS)  ──REST/WS──►  FastAPI  ──►  LangGraph superviso
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose
-- (Local dev) Python 3.11+, Node 20+
-- API keys: Google Gemini (free — https://aistudio.google.com/apikey), Cloudinary, LangSmith (optional)
+- **Docker & Docker Compose** (recommended) — runs the whole stack.
+- *(optional, local dev only)* Python 3.11+, Node 20+
 
-### 1. Configure environment
+### 1. Get the API keys
+
+| Variable | Required? | Where to get it |
+|----------|-----------|-----------------|
+| `GOOGLE_API_KEY` | ✅ **Required** | [Google AI Studio](https://aistudio.google.com/apikey) → *Create API key* (free). Used for the chat LLM + embeddings. |
+| `CLOUDINARY_CLOUD_NAME` · `CLOUDINARY_API_KEY` · `CLOUDINARY_API_SECRET` | Optional | [cloudinary.com](https://cloudinary.com/users/register_free) → register free → **Dashboard → Product Environment Credentials**. |
+| `LANGSMITH_API_KEY` | Optional | [smith.langchain.com](https://smith.langchain.com) → *Settings → API Keys* (enables tracing + eval; set `LANGSMITH_TRACING=true`). |
+
+> Without Cloudinary, uploaded files fall back to local disk (`uploads/`). Without LangSmith, tracing is simply disabled. **Only `GOOGLE_API_KEY` is needed to run.**
+
+### 2. Configure environment
 ```bash
 cp .env.example .env
-# edit .env and fill in your API keys
+# open .env and paste your GOOGLE_API_KEY (minimum); optionally Cloudinary + LangSmith.
 ```
 
-### 2. Run with Docker
-```bash
-docker compose up --build          # starts postgres, qdrant, redis, mcp, api, worker
-docker compose exec api alembic upgrade head   # create the relational schema (first run)
+The **default database account** is defined in `.env` and created automatically when Postgres first starts — change these to set your own credentials:
+```env
+POSTGRES_USER=finsight
+POSTGRES_PASSWORD=finsight
+POSTGRES_DB=finsight
 ```
-- API:      http://localhost:8000  (docs at `/docs`)
-- Qdrant:   http://localhost:6333/dashboard
-- Frontend: http://localhost:5173
+
+### 3. Run with Docker
+```bash
+docker compose up -d --build                  # build + start all services in the background
+docker compose exec api alembic upgrade head  # first run only: create the DB schema
+```
+Services & URLs:
+- **API** — http://localhost:8000  (Swagger docs at `/docs`)
+- **Qdrant dashboard** — http://localhost:6333/dashboard
+- *Frontend (planned)* — http://localhost:5173
+
+### Managing the project (Docker Compose)
+```bash
+docker compose ps                 # show services + status
+docker compose logs -f api        # follow logs of one service (api | worker | mcp | postgres | qdrant | redis)
+docker compose stop               # stop all services       (data is kept)
+docker compose start              # start them again
+docker compose restart api        # restart a single service (e.g. after editing code)
+docker compose up -d --build      # rebuild + restart after changing dependencies
+docker compose down               # remove containers + network (KEEPS data volumes)
+docker compose down -v            # remove EVERYTHING incl. volumes (wipes Postgres + Qdrant data)
+```
 
 ### 3. Local backend dev (without Docker)
 ```bash

@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: finsight
-      POSTGRES_PASSWORD: finsight
-      POSTGRES_DB: finsight
+      POSTGRES_USER: ${POSTGRES_USER:-finsight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finsight}
+      POSTGRES_DB: ${POSTGRES_DB:-finsight}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finsight"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finsight}"]
       interval: 5s
       timeout: 5s
       retries: 5

@@ -8,33 +8,25 @@ keep the codebase SOLID.
 
 ## 1. System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         React Frontend (Vite + TS)                    │
-│   Chat UI  •  Document upload  •  Task panel  •  Citation viewer       │
-└───────────────┬───────────────────────────────────────────────────────┘
-                │ REST (CRUD) + WebSocket (token & task-progress stream)
-┌───────────────▼───────────────────────────────────────────────────────┐
-│                          FastAPI (RESTful API)                         │
-│       api/  →  services/  →  repositories/      (layered, SOLID, DI)    │
-└───┬───────────────┬───────────────┬───────────────┬───────────────────┘
-    │               │               │               │
-┌───▼─────┐   ┌─────▼──────┐  ┌─────▼─────┐   ┌──────▼──────────────────┐
-│Postgres │   │   Redis    │  │ ARQ worker│   │  LangGraph Supervisor    │
-│docs,    │   │ cache /    │  │ (async    │   │  + multi-agent graph     │
-│convos,  │   │ pub-sub /  │  │  ingest & │   │                          │
-│tasks,   │   │ ratelimit /│  │  research)│   │                          │
-│checkpts │   │ ARQ queue  │  │           │   │                          │
-└────┬────┘   └────────────┘  └───────────┘   └──────────┬───────────────┘
-┌────▼─────┐  Qdrant: chunk vectors + payload (content,  │ tools (MCP)
-│  Qdrant  │  parent_content, page, citation metadata)    │
-└──────────┘                                              │
- (LangGraph PostgresSaver + PostgresStore = memory)       │
-┌────────────┐                                  ┌────────▼───────────────┐
-│ Cloudinary │  raw files + page images         │   MCP Server (tools)     │
-└────────────┘                                  │ web_search, fetch_url,   │
-                                                │ company_financials, calc │
-   LangSmith: tracing + evaluation over the whole graph
+```mermaid
+flowchart TD
+    FE["React Frontend (Vite + TS)<br/>chat · upload · task panel · citation viewer"]
+    FE -->|"REST + WebSocket"| API["FastAPI (RESTful API)<br/>api → services → repositories  ·  SOLID + DI"]
+
+    API --> GRAPH["LangGraph Supervisor<br/>+ multi-agent graph"]
+    API --> WK["ARQ worker<br/>async ingestion &amp; research"]
+
+    GRAPH -->|"tools (MCP client)"| MCP["MCP Server<br/>web_search · fetch_url<br/>company_financials · calculator"]
+    GRAPH --> QD[("Qdrant<br/>chunk vectors + payload")]
+
+    API --> PG[("Postgres<br/>docs · convos · tasks<br/>+ LangGraph checkpointer")]
+    API --> RD[("Redis<br/>cache · pub/sub · ARQ queue")]
+    WK --> QD
+    WK --> CL["Cloudinary<br/>raw files + page images"]
+    WK -.->|"progress"| RD
+
+    API -.->|"trace + eval"| LS["LangSmith"]
+    GRAPH -.->|"trace"| LS
 ```
 
 ### Design principles
@@ -54,29 +46,20 @@ keep the codebase SOLID.
 The graph is intentionally kept to **6 focused agents**. Comparison and trend analysis are
 handled inside the Analyst rather than as separate agents.
 
-```
-                        ┌──────────────┐
-        query ─────────►│  Supervisor  │◄──────────── routing loop
-                        └─┬────┬────┬───┘
-        ┌─────────────────┘    │    └──────────────────┐
-   ┌────▼─────┐        ┌───────▼──────┐                 │
-   │Retrieval │        │   Market     │                 │
-   │  (RAG)   │        │  Research    │                 │
-   │ evidence │        │ web/API live │                 │
-   │ +citation│        │              │                 │
-   └────┬─────┘        └───────┬──────┘                 │
-        └────────────────┬─────┘                        │
-                   ┌─────▼──────┐                        │
-                   │  Analyst   │  synthesize, compute,  │
-                   │            │  compare, trend        │
-                   └─────┬──────┘                        │
-                   ┌─────▼──────┐        ┌───────────────▼┐
-                   │   Writer   │───────►│     Critic      │
-                   │ +citation  │        │ verify grounded │
-                   └────────────┘        │ + cited; bounce │
-                                         └─────────────────┘
+```mermaid
+flowchart TD
+    Q(["User query"]) --> SUP{{"Supervisor<br/>triage: needs live web?"}}
+    SUP --> RET["Retrieval (RAG)<br/>evidence + citation"]
+    SUP -.->|"if needs web"| MR["Market Research<br/>live web via MCP"]
+    RET --> AN["Analyst<br/>synthesize · compute · compare · trend"]
+    MR --> AN
+    AN --> WR["Writer<br/>answer + [n] citations"]
+    WR --> CR["Critic<br/>verify grounded &amp; cited"]
+    CR -->|"approved"| DONE(["END"])
+    CR -.->|"revise (≤2)"| AN
 
-  Out-of-band:  Ingestion Pipeline (parse→OCR→chunk→embed→index) on document upload
+    ING["Ingestion pipeline<br/>parse → OCR → chunk → embed → index"]:::oob -.->|"out-of-band, on upload"| RET
+    classDef oob fill:#f6f6f6,stroke:#bbb,stroke-dasharray:3 3;
 ```
 
 ### Agent roster
