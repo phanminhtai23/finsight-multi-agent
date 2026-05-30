@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, streamChat } from "../lib/api";
 import type { Citation, Message } from "../lib/types";
+import { Logo } from "./Logo";
 import { Markdown } from "./Markdown";
 import { Spinner } from "./ui";
 
@@ -18,11 +19,7 @@ const SUGGESTIONS = [
 ];
 
 function Avatar() {
-  return (
-    <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white shadow-sm">
-      F
-    </div>
-  );
+  return <Logo className="mt-0.5 h-8 w-8 shrink-0" />;
 }
 
 function Sources({ citations }: { citations: Citation[] }) {
@@ -153,9 +150,7 @@ export function ChatView({ conversationId }: { conversationId: string }) {
         <div className="mx-auto max-w-3xl space-y-6">
           {messages.length === 0 && !streaming && (
             <div className="flex h-[60vh] flex-col items-center justify-center text-center">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-bold text-white shadow-lg shadow-indigo-600/20">
-                F
-              </div>
+              <Logo className="h-14 w-14" />
               <h2 className="mt-5 text-xl font-semibold">How can I help?</h2>
               <p className="mt-1 text-sm text-neutral-500">
                 Ask about this topic's documents — or the live web.

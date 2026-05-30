@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import type { Conversation, Topic } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
+import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, Input } from "./ui";
 import { UsageBar } from "./UsageBar";
@@ -56,7 +57,10 @@ export function Sidebar({
   return (
     <aside className="flex h-full w-72 flex-col border-r border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
       <div className="flex items-center justify-between p-3">
-        <span className="font-semibold tracking-tight">FinSight</span>
+        <div className="flex items-center gap-2">
+          <Logo className="h-7 w-7" />
+          <span className="font-semibold tracking-tight">FinSight</span>
+        </div>
         <Button onClick={() => setCreating((v) => !v)} className="px-2 py-1 text-xs">
           + New
         </Button>

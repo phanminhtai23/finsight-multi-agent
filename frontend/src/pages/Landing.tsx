@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui";
+import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
 
@@ -70,7 +71,7 @@ export default function Landing() {
       <header className="sticky top-0 z-30 border-b border-neutral-200/60 bg-white/70 backdrop-blur-xl dark:border-neutral-800/60 dark:bg-neutral-950/70">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm" />
+            <Logo className="h-7 w-7" />
             <span className="text-lg font-semibold tracking-tight">FinSight</span>
           </div>
           <div className="flex items-center gap-2">
@@ -226,7 +227,7 @@ export default function Landing() {
 
       <footer className="border-t border-neutral-200 py-10 text-center text-sm text-neutral-500 dark:border-neutral-800">
         <div className="flex items-center justify-center gap-2">
-          <div className="h-5 w-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600" />
+          <Logo className="h-5 w-5" />
           <span className="font-medium text-neutral-700 dark:text-neutral-300">FinSight</span>
         </div>
         <p className="mt-2">Multi-agent financial research · LangGraph · Qdrant · Gemini</p>
