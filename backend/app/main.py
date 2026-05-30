@@ -7,7 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.db import dispose_engine, init_engine
 from app.core.logging import configure_logging, get_logger
+from app.core.qdrant import close_qdrant
+from app.core.queue import close_arq_pool
 
 settings = get_settings()
 configure_logging(debug=settings.debug)
@@ -16,9 +19,13 @@ log = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown hooks (DB pools, Redis, MCP clients) are wired here later."""
+    """Startup/shutdown hooks."""
+    init_engine(settings)
     log.info("startup", app=settings.app_name, env=settings.environment)
     yield
+    await close_arq_pool()
+    await close_qdrant()
+    await dispose_engine()
     log.info("shutdown", app=settings.app_name)
 
 

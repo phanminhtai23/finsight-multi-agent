@@ -37,3 +37,7 @@ Thumbs.db
 *.log
 /data/
 uploads/
+
+# Test artifacts
+sample_financial.pdf
+compose_up.log

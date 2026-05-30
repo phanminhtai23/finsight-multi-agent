@@ -24,8 +24,9 @@ dependencies = [
     "asyncpg>=0.30",
     "psycopg[binary]>=3.2",
     "langgraph-checkpoint-postgres>=2.0.1",
-    "pgvector>=0.3.6",
     "alembic>=1.14",
+    # Vector database
+    "qdrant-client>=1.12",
     # Cache / queue
     "redis>=5.2",
     "arq>=0.26",

@@ -38,12 +38,17 @@ class Settings(BaseSettings):
     )
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- Vector database (Qdrant) ---
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None
+    qdrant_collection: str = "finsight_chunks"
+
     # --- LLM / embeddings (Google Gemini free tier via AI Studio) ---
     llm_provider: Literal["google"] = "google"
     google_api_key: str | None = None
     llm_model: str = "gemini-2.0-flash"
-    embedding_model: str = "models/text-embedding-004"
-    embedding_dim: int = 768
+    embedding_model: str = "models/gemini-embedding-2"
+    embedding_dim: int = 3072
 
     # --- Observability ---
     langsmith_api_key: str | None = None
@@ -54,6 +59,7 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str | None = None
     cloudinary_api_key: str | None = None
     cloudinary_api_secret: str | None = None
+    cloudinary_folder: str = "finsight"
 
     @property
     def is_prod(self) -> bool:

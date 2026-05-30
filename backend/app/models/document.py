@@ -4,12 +4,12 @@ import enum
 import uuid
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class DocumentStatus(str, enum.Enum):
+class DocumentStatus(enum.StrEnum):
     PROCESSING = "processing"
     READY = "ready"
     FAILED = "failed"
@@ -28,11 +28,13 @@ class Document(Base, UUIDMixin, TimestampMixin):
     cloudinary_url: Mapped[str | None] = mapped_column(default=None)
 
     status: Mapped[DocumentStatus] = mapped_column(
-        SAEnum(DocumentStatus, name="document_status"), default=DocumentStatus.PROCESSING
+        SAEnum(
+            DocumentStatus,
+            name="document_status",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=DocumentStatus.PROCESSING,
     )
     page_count: Mapped[int | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
-
-    chunks: Mapped[list["Chunk"]] = relationship(  # noqa: F821
-        back_populates="document", cascade="all, delete-orphan"
-    )
+    # Chunks/embeddings live in Qdrant (see app.rag.indexing.qdrant_store), not Postgres.

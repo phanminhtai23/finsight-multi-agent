@@ -11,7 +11,7 @@ It is built around a LangGraph supervisor orchestrating a team of specialized ag
 ## ✨ Key Features
 
 - **Multi-agent orchestration (LangGraph supervisor)** — six focused agents (Supervisor, Retrieval, Market Research, Analyst, Writer, Critic) coordinating to solve a task.
-- **RAG over your own documents** — upload PDF / DOCX / scanned images; FinSight parses, OCRs, chunks and indexes them into a pgvector store.
+- **RAG over your own documents** — upload PDF / DOCX / scanned images; FinSight parses, OCRs, chunks and indexes them into a **Qdrant** vector store.
 - **Advanced chunking** — layout-aware + semantic + parent–child + Anthropic-style *contextual retrieval*, with table-aware handling for financial statements.
 - **Hybrid retrieval + reranking** — vector search fused with full-text (BM25-like) search, then cross-encoder reranking.
 - **Citations everywhere** — every claim is traceable to a document, page and region (deep-link to the file on Cloudinary).
@@ -27,8 +27,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design, agent roles, communi
 ```
 React (Vite+TS)  ──REST/WS──►  FastAPI  ──►  LangGraph supervisor + agents
                                   │                    │ tools
-                          Postgres(+pgvector)     MCP server (web/RAG/calc)
-                          Redis (cache/pubsub/queue)
+                  Postgres (relational + memory)   MCP server (web/RAG/calc)
+                  Qdrant (vectors) · Redis (cache/pubsub/queue)
                           ARQ workers (async ingestion & research)
                           Cloudinary (raw file storage)   LangSmith (tracing)
 ```
@@ -38,8 +38,9 @@ React (Vite+TS)  ──REST/WS──►  FastAPI  ──►  LangGraph superviso
 | Layer | Tech |
 |-------|------|
 | Orchestration | LangGraph, LangChain |
-| LLM / Embeddings | Google Gemini (free tier) — `gemini-2.0-flash` + `text-embedding-004` |
-| RAG store | PostgreSQL + pgvector |
+| LLM / Embeddings | Google Gemini — chat (e.g. `gemini-2.0-flash`) + `gemini-embedding-2` (3072-d) |
+| Vector store | Qdrant |
+| Relational store | PostgreSQL |
 | Tools protocol | Model Context Protocol (MCP) server |
 | Cache / bus / queue | Redis, ARQ |
 | Conversation memory | Postgres (LangGraph `PostgresSaver` + `PostgresStore`) |
@@ -64,9 +65,11 @@ cp .env.example .env
 
 ### 2. Run with Docker
 ```bash
-docker compose up --build
+docker compose up --build          # starts postgres, qdrant, redis, api, worker
+docker compose exec api alembic upgrade head   # create the relational schema (first run)
 ```
 - API:      http://localhost:8000  (docs at `/docs`)
+- Qdrant:   http://localhost:6333/dashboard
 - Frontend: http://localhost:5173
 
 ### 3. Local backend dev (without Docker)

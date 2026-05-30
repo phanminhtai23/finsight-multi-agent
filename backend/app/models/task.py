@@ -15,12 +15,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class TaskType(str, enum.Enum):
+class TaskType(enum.StrEnum):
     INGESTION = "ingestion"
     RESEARCH = "research"
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
@@ -33,9 +33,16 @@ class Task(Base, UUIDMixin, TimestampMixin):
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("conversations.id", ondelete="CASCADE"), default=None, index=True
     )
-    type: Mapped[TaskType] = mapped_column(SAEnum(TaskType, name="task_type"))
+    type: Mapped[TaskType] = mapped_column(
+        SAEnum(TaskType, name="task_type", values_callable=lambda e: [m.value for m in e])
+    )
     status: Mapped[TaskStatus] = mapped_column(
-        SAEnum(TaskStatus, name="task_status"), default=TaskStatus.QUEUED
+        SAEnum(
+            TaskStatus,
+            name="task_status",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=TaskStatus.QUEUED,
     )
     progress: Mapped[int] = mapped_column(default=0)  # 0..100
     input: Mapped[dict | None] = mapped_column(JSONB, default=None)

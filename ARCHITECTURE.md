@@ -21,13 +21,15 @@ keep the codebase SOLID.
     │               │               │               │
 ┌───▼─────┐   ┌─────▼──────┐  ┌─────▼─────┐   ┌──────▼──────────────────┐
 │Postgres │   │   Redis    │  │ ARQ worker│   │  LangGraph Supervisor    │
-│+pgvector│   │ cache /    │  │ (async    │   │  + multi-agent graph     │
-│docs,    │   │ pub-sub /  │  │  ingest & │   │                          │
-│chunks,  │   │ ratelimit /│  │  research)│   │                          │
-│convos,  │   │ ARQ queue  │  │           │   │                          │
-│checkpts │   └────────────┘  └───────────┘   └──────────┬───────────────┘
-└─────────┘                                              │ tools (MCP)
- (LangGraph PostgresSaver + PostgresStore = memory)      │
+│docs,    │   │ cache /    │  │ (async    │   │  + multi-agent graph     │
+│convos,  │   │ pub-sub /  │  │  ingest & │   │                          │
+│tasks,   │   │ ratelimit /│  │  research)│   │                          │
+│checkpts │   │ ARQ queue  │  │           │   │                          │
+└────┬────┘   └────────────┘  └───────────┘   └──────────┬───────────────┘
+┌────▼─────┐  Qdrant: chunk vectors + payload (content,  │ tools (MCP)
+│  Qdrant  │  parent_content, page, citation metadata)    │
+└──────────┘                                              │
+ (LangGraph PostgresSaver + PostgresStore = memory)       │
 ┌────────────┐                                  ┌────────▼───────────────┐
 │ Cloudinary │  raw files + page images         │   MCP Server (tools)    │
 └────────────┘                                  │ rag_search, web_search, │
@@ -123,13 +125,15 @@ Upload (PDF / DOCX / image) ─► store raw file on Cloudinary (public_id, secu
 ### 3.3 Indexing & hybrid retrieval
 
 ```
-embedding (Gemini text-embedding-004, 768-d) ─┐
-                                              ├─► pgvector (HNSW/IVF index)
-full-text tsvector                           ─┘    +  GIN index
-query ─► hybrid = vector ⊕ keyword ─► Reciprocal Rank Fusion
-      ─► cross-encoder rerank (bge-reranker / Cohere) on top-K
-      ─► evidence chunks + citation metadata
+embedding (Gemini gemini-embedding-001, 3072-d) ─► Qdrant collection (cosine)
+content payload (full-text index)             ─► Qdrant MatchText (keyword leg)
+query ─► hybrid = dense vector ⊕ keyword ─► Reciprocal Rank Fusion
+      ─► (optional) cross-encoder rerank on top-K
+      ─► small-to-big expand (parent_content) ─► evidence + citation metadata
 ```
+
+> Vectors and chunk payloads live in **Qdrant** (not Postgres). A future upgrade can replace
+> the keyword leg with a Qdrant sparse-vector (BM25) for stronger hybrid ranking.
 
 ### 3.4 Citations
 
@@ -160,27 +164,35 @@ Conversation (thread_id)
 
 ---
 
-## 5. Data Model (PostgreSQL)
+## 5. Data Model
 
+### PostgreSQL (relational)
 ```sql
 documents(
   id, user_id, title, file_type, company, fiscal_period,
   cloudinary_public_id, cloudinary_url, status,        -- PROCESSING/READY/FAILED
-  page_count, created_at )
-
-chunks(
-  id, document_id, parent_chunk_id,                    -- parent-child
-  content, contextualized_content,                     -- contextual retrieval
-  embedding vector(768),                               -- pgvector (Gemini text-embedding-004)
-  tsv tsvector,                                         -- hybrid full-text
-  page, bbox jsonb, section_title, metadata jsonb,     -- citation + filtering
-  created_at )
+  page_count, error, created_at )
 
 conversations(id, user_id, title, created_at)
 messages(id, conversation_id, role, content, citations jsonb, created_at)
 tasks(id, conversation_id, type, status, progress, input, result, error, created_at)
 
 -- LangGraph-managed (do not hand-roll): checkpoints, checkpoint_writes, store
+```
+
+### Qdrant (vectors) — collection `finsight_chunks`
+```
+point {
+  id:     uuid
+  vector: float[3072]                 # Gemini gemini-embedding-001 (cosine)
+  payload {
+    document_id, document_title, cloudinary_url, user_id,   # citation + filtering
+    content,                                                # display text
+    parent_content,                                         # small-to-big context
+    page, section_title, is_table
+  }
+}
+# payload indexes: document_id (keyword filter), content (full-text → keyword leg)
 ```
 
 ---

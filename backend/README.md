@@ -12,7 +12,7 @@ workers.
 
 - **Python 3.11+** (developed on 3.12)
 - FastAPI · LangGraph · LangChain · **Google Gemini** (free tier)
-- PostgreSQL + **pgvector** · Redis · ARQ
+- **Qdrant** (vectors) · PostgreSQL (relational + LangGraph checkpointer) · Redis · ARQ
 - SQLAlchemy 2 (async) · Alembic · Cloudinary
 - Tooling: **ruff**, **pytest**
 
@@ -31,7 +31,7 @@ app/
 ├── rag/            ingestion · chunking · indexing · retrieval
 ├── skills/         reusable skill packages
 ├── workers/        ARQ background workers (ingestion, research)
-└── models/         SQLAlchemy ORM (documents, chunks, conversations, messages, tasks)
+└── models/         SQLAlchemy ORM (documents, conversations, messages, tasks)
 mcp_server/         MCP server exposing tools (rag_search, web_search, fetch_url, fin_calc)
 evals/              LangSmith datasets + evaluation scripts
 tests/              pytest (unit + integration)
@@ -54,6 +54,7 @@ Required keys:
 | `GOOGLE_API_KEY` | Gemini LLM + embeddings (free) | https://aistudio.google.com/apikey |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Raw file storage | https://cloudinary.com (free tier) |
 | `DATABASE_URL` / `CHECKPOINT_DATABASE_URL` | Postgres (async + sync DSNs) | provided by docker-compose |
+| `QDRANT_URL` / `QDRANT_API_KEY` / `QDRANT_COLLECTION` | Vector store | provided by docker-compose |
 | `REDIS_URL` | Cache / pub-sub / ARQ queue | provided by docker-compose |
 | `LANGSMITH_API_KEY` *(optional)* | Tracing + eval | https://smith.langchain.com |
 
@@ -73,8 +74,8 @@ py -3.12 -m venv .venv
 .venv\Scripts\activate          # PowerShell:  .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 
-# Postgres + Redis still needed — start just those:
-docker compose up -d postgres redis
+# Postgres + Qdrant + Redis still needed — start just those:
+docker compose up -d postgres qdrant redis
 
 # apply migrations, then run the API
 alembic upgrade head
