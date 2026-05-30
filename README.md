@@ -25,6 +25,38 @@ It is built around a LangGraph supervisor orchestrating a team of specialized ag
 
 ---
 
+## 🧪 Quick demo (for reviewers)
+
+A ready-made report lives at [`samples/sample_financial_report.docx`](samples/sample_financial_report.docx) — *Nimbus Cloud Inc. FY2024*, with quarterly results and a revenue-by-segment breakdown (good for trends, comparisons and pie charts).
+
+**1. Start everything**
+```bash
+cp .env.example .env          # then set GOOGLE_API_KEY (free: https://aistudio.google.com/apikey)
+docker compose up -d --build  # postgres, qdrant, redis, mcp, api, worker
+docker compose exec api alembic upgrade head
+cd frontend && npm install && npm run dev   # → http://localhost:5173
+```
+
+**2. Sign up** at http://localhost:5173 → *Get started*.
+> Email verification: when SMTP is not configured, the app runs in dev mode and verifies you automatically (no inbox needed).
+
+**3. Add the sample data** → in the app click **Manage data (topics)** → create a topic `Nimbus` → **Upload file** → choose `samples/sample_financial_report.docx` → wait for status **ready**.
+
+**4. Chat** → **+ New** conversation, pin the **Nimbus** topic, then try:
+
+| Ask | What to expect |
+|-----|----------------|
+| `What was Q4 2024 revenue and net income?` | Grounded answer **$1,180M / $262M** with a clickable `[1]` citation |
+| `Plot quarterly revenue for 2024 as a chart` | A line/bar **chart** (820 → 910 → 1,015 → 1,180) |
+| `Show revenue breakdown by segment as a pie chart` | A **pie** (Cloud 50% · Data 28% · AI 22%) |
+| `Is Nimbus a good investment? Analyze with a chart.` | Analyst-style take + risks + a chart |
+
+**5. Also try:** dark mode, the **Thinking** toggle (streams the agent's reasoning), collapsing the sidebar, your profile (Free tier). Charts and citations persist on reload.
+
+> Gemini's free tier is rate-limited; if a reply is throttled the UI says so — wait ~1 minute and retry.
+
+---
+
 ## ✨ Key Features
 
 - **Multi-agent orchestration (LangGraph supervisor)** — six focused agents (Supervisor, Retrieval, Market Research, Analyst, Writer, Critic) coordinating to solve a task.

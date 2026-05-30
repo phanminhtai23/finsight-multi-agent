@@ -13,6 +13,30 @@ interface LocalMsg {
   citations?: Citation[];
   thinking?: string;
   charts?: ChartSpec[];
+  tools?: string[];
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  rag_search: "🔎 Document search",
+  web_search: "🌐 Web search · MCP",
+  chart: "📊 Chart",
+};
+
+function ToolChips({ tools }: { tools: string[] }) {
+  if (!tools.length) return null;
+  return (
+    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-neutral-400">Tools used:</span>
+      {tools.map((t) => (
+        <span
+          key={t}
+          className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300"
+        >
+          {TOOL_LABELS[t] ?? t}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 const SUGGESTIONS = [
@@ -102,6 +126,7 @@ export function ChatView({
   const [liveThinking, setLiveThinking] = useState("");
   const [liveAnswer, setLiveAnswer] = useState("");
   const [liveCharts, setLiveCharts] = useState<ChartSpec[]>([]);
+  const [liveTools, setLiveTools] = useState<string[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -124,6 +149,7 @@ export function ChatView({
             content: m.content,
             citations: m.citations ?? undefined,
             charts: m.charts ?? undefined,
+            tools: m.tools ?? undefined,
           })),
         ),
       );
@@ -144,6 +170,7 @@ export function ChatView({
     setLiveThinking("");
     setLiveAnswer("");
     setLiveCharts([]);
+    setLiveTools([]);
     setElapsed(0);
     const start = Date.now();
     timerRef.current = window.setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
@@ -151,13 +178,17 @@ export function ChatView({
     let answer = "";
     let think = "";
     let cites: Citation[] = [];
+    let toolList: string[] = [];
     const chartList: ChartSpec[] = [];
     try {
       await streamChat(conversationId, msg, thinking, (ev) => {
         if (ev.type === "thinking") setLiveThinking((think += ev.token));
         else if (ev.type === "token") setLiveAnswer((answer += ev.token));
         else if (ev.type === "citations") cites = ev.citations;
-        else if (ev.type === "chart") {
+        else if (ev.type === "tools") {
+          toolList = ev.tools;
+          setLiveTools(ev.tools);
+        } else if (ev.type === "chart") {
           chartList.push(ev.chart);
           setLiveCharts([...chartList]);
         }
@@ -174,11 +205,13 @@ export function ChatView({
         citations: cites,
         thinking: think || undefined,
         charts: chartList.length ? chartList : undefined,
+        tools: toolList.length ? toolList : undefined,
       },
     ]);
     setLiveThinking("");
     setLiveAnswer("");
     setLiveCharts([]);
+    setLiveTools([]);
     setStreaming(false);
   }
 
@@ -234,6 +267,7 @@ export function ChatView({
                 <Avatar />
                 <div className="min-w-0 flex-1">
                   {m.thinking && <Thinking text={m.thinking} />}
+                  {m.tools?.length ? <ToolChips tools={m.tools} /> : null}
                   <div className="rounded-2xl rounded-tl-sm bg-neutral-100 px-4 py-3 text-[15px] dark:bg-neutral-800">
                     <Markdown>{m.content}</Markdown>
                     {m.citations && <Sources citations={m.citations} />}
@@ -257,6 +291,7 @@ export function ChatView({
                     {elapsed.toFixed(1)}s
                   </span>
                 </div>
+                {liveTools.length > 0 && <ToolChips tools={liveTools} />}
                 {liveThinking && (
                   <div className="mb-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900/60">
                     <div className="text-xs font-medium text-neutral-500">💭 Reasoning…</div>

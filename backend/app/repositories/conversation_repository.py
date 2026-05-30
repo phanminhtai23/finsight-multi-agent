@@ -43,6 +43,7 @@ class ConversationRepository:
         content: str,
         citations: list | None = None,
         charts: list | None = None,
+        tools: list | None = None,
     ) -> Message:
         message = Message(
             conversation_id=conversation_id,
@@ -50,6 +51,7 @@ class ConversationRepository:
             content=content,
             citations=citations,
             charts=charts,
+            tools=tools,
         )
         self.session.add(message)
         await self.session.flush()

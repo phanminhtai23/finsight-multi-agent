@@ -40,4 +40,5 @@ class MessageOut(BaseModel):
     content: str
     citations: list | None = None
     charts: list | None = None
+    tools: list[str] | None = None
     created_at: datetime

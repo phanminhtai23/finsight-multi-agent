@@ -44,3 +44,4 @@ compose_up.log
 
 # TS build info
 *.tsbuildinfo
+/sample_financial.docx

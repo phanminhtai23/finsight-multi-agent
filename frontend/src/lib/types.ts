@@ -56,6 +56,7 @@ export interface Message {
   content: string;
   citations?: Citation[] | null;
   charts?: ChartSpec[] | null;
+  tools?: string[] | null;
   created_at: string;
 }
 
@@ -82,4 +83,5 @@ export type StreamEvent =
   | { type: "token"; token: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "chart"; chart: ChartSpec }
+  | { type: "tools"; tools: string[] }
   | { type: "done" };

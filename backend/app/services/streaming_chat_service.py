@@ -44,12 +44,14 @@ class StreamingChatService:
         thinking: bool = False,
     ) -> AsyncIterator[dict]:
         evidence: list[EvidenceItem] = []
+        tools: list[str] = []  # tool names the agent invoked this turn
 
         # Retrieval is best-effort: a transient failure (e.g. embedding rate limit) should not
         # blank out the chat — we just answer with whatever evidence we have (possibly none).
         try:
             retriever = self._make_retriever(collection)
             if retriever is not None:
+                tools.append("rag_search")
                 chunks = await retriever.retrieve(message)
                 evidence += [
                     EvidenceItem(
@@ -64,6 +66,7 @@ class StreamingChatService:
                 ]
             # No topic attached → fall back to live web research.
             if collection is None and self._web is not None:
+                tools.append("web_search")
                 evidence += list(await self._web.search(message))
         except Exception:  # noqa: BLE001
             pass
@@ -106,8 +109,12 @@ class StreamingChatService:
         charts: list[dict] = []
         if wants_chart(message):
             charts = await self._viz.build_charts(message, f"{answer}\n\n{evidence_str}")
+            if charts:
+                tools.append("chart")
             for chart in charts:
                 yield {"type": "chart", "chart": chart}
+
+        yield {"type": "tools", "tools": tools}
 
         async with self._sessionmaker() as session:
             repo = ConversationRepository(session)
@@ -118,6 +125,7 @@ class StreamingChatService:
                 content=answer,
                 citations=citations,
                 charts=charts or None,
+                tools=tools or None,
             )
             await session.commit()
 
