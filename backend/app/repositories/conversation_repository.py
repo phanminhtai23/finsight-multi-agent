@@ -42,9 +42,14 @@ class ConversationRepository:
         role: str,
         content: str,
         citations: list | None = None,
+        charts: list | None = None,
     ) -> Message:
         message = Message(
-            conversation_id=conversation_id, role=role, content=content, citations=citations
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            citations=citations,
+            charts=charts,
         )
         self.session.add(message)
         await self.session.flush()

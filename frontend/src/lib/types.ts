@@ -55,6 +55,7 @@ export interface Message {
   role: string;
   content: string;
   citations?: Citation[] | null;
+  charts?: ChartSpec[] | null;
   created_at: string;
 }
 

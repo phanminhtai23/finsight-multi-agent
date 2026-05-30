@@ -123,6 +123,7 @@ export function ChatView({
             role: m.role,
             content: m.content,
             citations: m.citations ?? undefined,
+            charts: m.charts ?? undefined,
           })),
         ),
       );

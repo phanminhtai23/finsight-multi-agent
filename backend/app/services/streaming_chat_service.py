@@ -103,15 +103,21 @@ class StreamingChatService:
         yield {"type": "citations", "citations": citations}
 
         # Visualization agent: draw charts when the user asked to analyse / show / compare.
+        charts: list[dict] = []
         if wants_chart(message):
-            for chart in await self._viz.build_charts(message, f"{answer}\n\n{evidence_str}"):
+            charts = await self._viz.build_charts(message, f"{answer}\n\n{evidence_str}")
+            for chart in charts:
                 yield {"type": "chart", "chart": chart}
 
         async with self._sessionmaker() as session:
             repo = ConversationRepository(session)
             await repo.add_message(conversation_id, role="user", content=message)
             await repo.add_message(
-                conversation_id, role="assistant", content=answer, citations=citations
+                conversation_id,
+                role="assistant",
+                content=answer,
+                citations=citations,
+                charts=charts or None,
             )
             await session.commit()
 

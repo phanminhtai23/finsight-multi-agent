@@ -39,4 +39,5 @@ class MessageOut(BaseModel):
     role: str
     content: str
     citations: list | None = None
+    charts: list | None = None
     created_at: datetime

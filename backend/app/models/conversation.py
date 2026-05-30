@@ -37,5 +37,6 @@ class Message(Base, UUIDMixin, TimestampMixin):
     role: Mapped[str]  # "user" | "assistant" | "system"
     content: Mapped[str]
     citations: Mapped[list | None] = mapped_column(JSONB, default=None)
+    charts: Mapped[list | None] = mapped_column(JSONB, default=None)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
