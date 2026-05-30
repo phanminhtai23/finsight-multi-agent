@@ -156,6 +156,7 @@ def get_streaming_chat_service() -> StreamingChatService:
         get_chat_model(),
         McpWebSearch(settings.mcp_server_url),
         get_sessionmaker(),
+        get_text_generator(),
     )
 
 

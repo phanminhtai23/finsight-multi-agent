@@ -15,7 +15,9 @@ from app.agents.nodes import RetrieverFactory, build_citations, format_evidence
 from app.agents.state import EvidenceItem
 from app.agents.web import WebSearch
 from app.core.llm import stream_chat
+from app.rag.ports import TextGenerator
 from app.repositories.conversation_repository import ConversationRepository
+from app.services.visualization_service import VisualizationService, wants_chart
 
 
 class StreamingChatService:
@@ -25,11 +27,13 @@ class StreamingChatService:
         chat_model: BaseChatModel,
         web_search: WebSearch | None,
         sessionmaker: async_sessionmaker,
+        generator: TextGenerator,
     ) -> None:
         self._make_retriever = make_retriever
         self._model = chat_model
         self._web = web_search
         self._sessionmaker = sessionmaker
+        self._viz = VisualizationService(generator)
 
     async def stream(
         self,
@@ -97,6 +101,11 @@ class StreamingChatService:
             yield {"type": "token", "token": answer}
         citations = [dict(c) for c in build_citations(evidence)]
         yield {"type": "citations", "citations": citations}
+
+        # Visualization agent: draw charts when the user asked to analyse / show / compare.
+        if wants_chart(message):
+            for chart in await self._viz.build_charts(message, f"{answer}\n\n{evidence_str}"):
+                yield {"type": "chart", "chart": chart}
 
         async with self._sessionmaker() as session:
             repo = ConversationRepository(session)

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, streamChat } from "../lib/api";
-import type { Citation, Message } from "../lib/types";
+import type { ChartSpec, Citation, Message } from "../lib/types";
+import { Chart } from "./Chart";
 import { Logo } from "./Logo";
 import { Markdown } from "./Markdown";
 import { Spinner } from "./ui";
@@ -10,6 +11,7 @@ interface LocalMsg {
   content: string;
   citations?: Citation[];
   thinking?: string;
+  charts?: ChartSpec[];
 }
 
 const SUGGESTIONS = [
@@ -84,6 +86,7 @@ export function ChatView({
   const [streaming, setStreaming] = useState(false);
   const [liveThinking, setLiveThinking] = useState("");
   const [liveAnswer, setLiveAnswer] = useState("");
+  const [liveCharts, setLiveCharts] = useState<ChartSpec[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -124,6 +127,7 @@ export function ChatView({
     setStreaming(true);
     setLiveThinking("");
     setLiveAnswer("");
+    setLiveCharts([]);
     setElapsed(0);
     const start = Date.now();
     timerRef.current = window.setInterval(() => setElapsed((Date.now() - start) / 1000), 100);
@@ -131,11 +135,16 @@ export function ChatView({
     let answer = "";
     let think = "";
     let cites: Citation[] = [];
+    const chartList: ChartSpec[] = [];
     try {
       await streamChat(conversationId, msg, thinking, (ev) => {
         if (ev.type === "thinking") setLiveThinking((think += ev.token));
         else if (ev.type === "token") setLiveAnswer((answer += ev.token));
         else if (ev.type === "citations") cites = ev.citations;
+        else if (ev.type === "chart") {
+          chartList.push(ev.chart);
+          setLiveCharts([...chartList]);
+        }
       });
     } catch {
       answer = answer || "⚠️ Streaming failed.";
@@ -143,10 +152,17 @@ export function ChatView({
     stopTimer();
     setMessages((m) => [
       ...m,
-      { role: "assistant", content: answer, citations: cites, thinking: think || undefined },
+      {
+        role: "assistant",
+        content: answer,
+        citations: cites,
+        thinking: think || undefined,
+        charts: chartList.length ? chartList : undefined,
+      },
     ]);
     setLiveThinking("");
     setLiveAnswer("");
+    setLiveCharts([]);
     setStreaming(false);
   }
 
@@ -205,6 +221,7 @@ export function ChatView({
                     <Markdown>{m.content}</Markdown>
                     {m.citations && <Sources citations={m.citations} />}
                   </div>
+                  {m.charts?.map((c, j) => <Chart key={j} spec={c} />)}
                 </div>
               </div>
             ),
@@ -236,6 +253,7 @@ export function ChatView({
                     <Markdown>{liveAnswer}</Markdown>
                   </div>
                 )}
+                {liveCharts.map((c, j) => <Chart key={j} spec={c} />)}
               </div>
             </div>
           )}

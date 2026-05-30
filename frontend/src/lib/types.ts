@@ -65,9 +65,20 @@ export interface Usage {
   percent: number;
 }
 
+export interface ChartSpec {
+  type: "bar" | "line" | "area" | "pie";
+  title?: string;
+  x?: string;
+  series?: { key: string; name?: string }[];
+  nameKey?: string;
+  valueKey?: string;
+  data: Record<string, string | number>[];
+}
+
 export type StreamEvent =
   | { type: "evidence"; count: number }
   | { type: "thinking"; token: string }
   | { type: "token"; token: string }
   | { type: "citations"; citations: Citation[] }
+  | { type: "chart"; chart: ChartSpec }
   | { type: "done" };
