@@ -6,6 +6,8 @@ import httpx
 import jwt
 
 from app.core.config import Settings
+from app.core.email import send_verification_email
+from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
     create_email_token,
@@ -18,6 +20,7 @@ from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
 _GOOGLE_TOKENINFO = "https://oauth2.googleapis.com/tokeninfo"
+log = get_logger(__name__)
 
 
 class AuthError(Exception):
@@ -45,9 +48,15 @@ class AuthService:
             )
         )
         token = create_email_token(str(user.id))
-        # TODO: when SMTP is configured, send the verification email instead of returning it.
-        dev_token = None if self._settings.emails_enabled else token
-        return user, dev_token
+        if self._settings.emails_enabled:
+            link = f"{self._settings.frontend_url}/verify-email?token={token}"
+            try:
+                await send_verification_email(self._settings, user.email, link)
+                return user, None
+            except Exception as exc:  # noqa: BLE001 - fall back so setup can be debugged
+                log.warning("verification_email_failed", error=str(exc))
+                return user, token  # surface the token so the user can still verify
+        return user, token
 
     async def authenticate(self, email: str, password: str) -> User:
         user = await self._users.get_by_email(email.lower())

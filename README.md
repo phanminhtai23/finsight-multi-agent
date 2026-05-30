@@ -118,7 +118,13 @@ docker compose exec api alembic upgrade head  # first run only: create the DB sc
 Services & URLs:
 - **API** — http://localhost:8000  (Swagger docs at `/docs`)
 - **Qdrant dashboard** — http://localhost:6333/dashboard
-- *Frontend (planned)* — http://localhost:5173
+
+### 4. Run the frontend (React + Vite)
+```bash
+cd frontend
+npm install
+npm run dev          # → http://localhost:5173 (proxies /api to the backend)
+```
 
 ### Managing the project (Docker Compose)
 ```bash
@@ -187,7 +193,7 @@ frontend/            React + Vite + TS
 - [x] M2 — Multi-agent graph (supervisor + agents) on LangGraph + Postgres checkpointer
 - [x] M3 — Tools via MCP server (web_search, company_financials, fetch_url, financial_calculator)
 - [x] M4 — Async tasks (ARQ + Redis pub/sub + WebSocket)  *(ingestion path)*
-- [ ] M5 — React frontend
+- [x] M5 — React frontend (landing, auth, topics + upload, chat streaming, thinking, dark mode)
 - [x] M6 — Skills (`/skills`) + LangSmith evals (RAG vs baseline) + publication
 
 ## 📄 License
