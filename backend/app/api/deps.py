@@ -5,12 +5,15 @@ request-scoped session plus the configured providers (Postgres for relational da
 for vectors).
 """
 
+import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
+import jwt
 import redis.asyncio as redis
 from arq.connections import ArqRedis
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.graph import build_graph
@@ -22,13 +25,17 @@ from app.core.db import get_session
 from app.core.llm import get_embedder, get_text_generator
 from app.core.qdrant import get_qdrant_client
 from app.core.queue import get_arq_pool
+from app.core.security import decode_token
+from app.models.user import User
 from app.rag.indexing.qdrant_store import QdrantVectorStore
 from app.rag.retrieval.hybrid import HybridRetriever
 from app.rag.retrieval.qdrant_backend import QdrantSearchBackend
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.task_repository import TaskRepository
+from app.repositories.user_repository import UserRepository
 from app.services.agent_service import AgentService
+from app.services.auth_service import AuthService
 from app.services.events import EventPublisher
 from app.services.ingestion_service import IngestionService
 from app.services.qa_service import QAService
@@ -144,3 +151,42 @@ def get_skill_registry() -> SkillRegistry:
 
 
 SkillRegistryDep = Annotated[SkillRegistry, Depends(get_skill_registry)]
+
+
+# --- Auth ---
+_bearer = HTTPBearer(auto_error=False)
+
+
+def get_user_repo(session: SessionDep) -> UserRepository:
+    return UserRepository(session)
+
+
+UserRepoDep = Annotated[UserRepository, Depends(get_user_repo)]
+
+
+def get_auth_service(user_repo: UserRepoDep, settings: SettingsDep) -> AuthService:
+    return AuthService(user_repo, settings)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+async def get_current_user(
+    user_repo: UserRepoDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> User:
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    try:
+        payload = decode_token(credentials.credentials, expected_type="access")
+    except jwt.PyJWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        ) from exc
+    user = await user_repo.get(uuid.UUID(payload["sub"]))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+CurrentUserDep = Annotated[User, Depends(get_current_user)]

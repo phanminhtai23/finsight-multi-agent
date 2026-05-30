@@ -39,6 +39,10 @@ dependencies = [
     "pillow>=11.0",           # image handling for OCR
     "pytesseract>=0.3.13",    # OCR (requires Tesseract binary; Cloudinary OCR as fallback)
     "cloudinary>=1.41",
+    # Auth
+    "pyjwt>=2.9",
+    "bcrypt>=4.2",
+    "email-validator>=2.2",
     # Utils
     "httpx>=0.27",
     "tenacity>=9.0",

@@ -46,6 +46,35 @@ class Settings(BaseSettings):
     # --- MCP tool server ---
     mcp_server_url: str = "http://localhost:8001/mcp"
 
+    # --- Auth / security ---
+    jwt_secret: str = "change-me-in-prod-please"
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_minutes: int = 30
+    refresh_token_ttl_days: int = 14
+    frontend_url: str = "http://localhost:5173"
+
+    # --- Storage quota (per user) ---
+    storage_quota_mb: int = 100
+
+    # --- Google OAuth (optional; login with Google when set) ---
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+
+    # --- Email / SMTP (optional; dev returns the verification token when unset) ---
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    email_from: str = "no-reply@finsight.local"
+
+    @property
+    def emails_enabled(self) -> bool:
+        return bool(self.smtp_host and self.smtp_user)
+
+    @property
+    def google_oauth_enabled(self) -> bool:
+        return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
+
     # --- LLM / embeddings (Google Gemini free tier via AI Studio) ---
     llm_provider: Literal["google"] = "google"
     google_api_key: str | None = None
