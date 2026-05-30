@@ -15,4 +15,5 @@ class User(Base, UUIDMixin, TimestampMixin):
     avatar_url: Mapped[str | None] = mapped_column(default=None)
     is_verified: Mapped[bool] = mapped_column(default=False)
     auth_provider: Mapped[str] = mapped_column(default="password")  # "password" | "google"
+    tier: Mapped[str] = mapped_column(default="free")  # "free" | "pro" | "pro_max"
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)

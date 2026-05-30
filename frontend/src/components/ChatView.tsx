@@ -71,7 +71,13 @@ function SendIcon() {
   );
 }
 
-export function ChatView({ conversationId }: { conversationId: string }) {
+export function ChatView({
+  conversationId,
+  topicName,
+}: {
+  conversationId: string;
+  topicName?: string;
+}) {
   const [messages, setMessages] = useState<LocalMsg[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -146,6 +152,20 @@ export function ChatView({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-neutral-950">
+      <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-2.5 dark:border-neutral-800">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+            topicName
+              ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300"
+              : "bg-neutral-100 text-neutral-500 dark:bg-neutral-800"
+          }`}
+        >
+          {topicName ? `📁 ${topicName}` : "🌐 Web research"}
+        </span>
+        <span className="text-xs text-neutral-400">
+          {topicName ? "Answers grounded in this topic's data" : "No topic — answers from the web"}
+        </span>
+      </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto max-w-3xl space-y-6">
           {messages.length === 0 && !streaming && (
@@ -242,13 +262,20 @@ export function ChatView({ conversationId }: { conversationId: string }) {
             <button
               onClick={() => setThinking((v) => !v)}
               title="Toggle step-by-step reasoning"
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
-                thinking
-                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                  : "text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              }`}
+              className="flex items-center gap-1.5 rounded-xl px-2 py-1.5"
             >
-              💭 Thinking
+              <span
+                className={`relative h-5 w-9 rounded-full transition ${
+                  thinking ? "bg-indigo-600" : "bg-neutral-300 dark:bg-neutral-600"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                    thinking ? "left-[1.125rem]" : "left-0.5"
+                  }`}
+                />
+              </span>
+              <span className="text-xs font-medium text-neutral-500">💭 Thinking</span>
             </button>
             <button
               onClick={() => send()}

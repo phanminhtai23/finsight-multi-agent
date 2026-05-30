@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, formatBytes } from "../lib/api";
 import type { Document, Topic } from "../lib/types";
-import { Button, Input, Spinner } from "./ui";
+import { Button, Input } from "./ui";
 
 interface UploadProgress {
   name: string;
@@ -266,8 +266,28 @@ export function TopicsManager({
               </div>
             </>
           ) : (
-            <div className="grid flex-1 place-items-center text-sm text-neutral-400">
-              <Spinner />
+            <div className="flex-1 overflow-y-auto p-8">
+              <h3 className="text-base font-semibold">How topics work</h3>
+              <ol className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-400">
+                <li>
+                  <b className="text-indigo-600">1. Create a topic</b> — a private knowledge
+                  space. Each topic gets its own vector collection, so its data stays isolated.
+                </li>
+                <li>
+                  <b className="text-indigo-600">2. Add data</b> — upload PDFs, Word files or
+                  images, or paste a web link. Files are parsed, chunked and indexed automatically
+                  (watch the extract progress bar).
+                </li>
+                <li>
+                  <b className="text-indigo-600">3. Ask</b> — start a conversation and pin this
+                  topic. Answers are grounded in this topic's documents, with citations.
+                </li>
+              </ol>
+              <p className="mt-6 text-xs text-neutral-400">
+                Supported: PDF, DOCX, images (OCR), web links · Storage is shared across your
+                topics and counts toward your quota · Deleting a document frees its space.
+              </p>
+              <p className="mt-6 text-sm text-neutral-400">← Select a topic to manage its data.</p>
             </div>
           )}
         </section>

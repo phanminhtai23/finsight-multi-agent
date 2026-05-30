@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { Conversation, Topic } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "./Logo";
+import { ProfileModal } from "./ProfileModal";
 import { ThemeToggle } from "./ThemeToggle";
+import { TierBadge } from "./TierBadge";
 import { Button, Input } from "./ui";
 import { UsageBar } from "./UsageBar";
 
@@ -11,20 +13,22 @@ export function Sidebar({
   selectedId,
   onSelect,
   onManageData,
+  onCollapse,
   dataVersion,
 }: {
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (c: Conversation) => void;
   onManageData: () => void;
+  onCollapse: () => void;
   dataVersion: number;
 }) {
-  const { user, logout, refreshUser } = useAuth();
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [topicId, setTopicId] = useState<string>("");
-  const avatarRef = useRef<HTMLInputElement>(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   async function loadConversations() {
     const { data } = await api.get<Conversation[]>("/conversations");
@@ -35,23 +39,18 @@ export function Sidebar({
     api.get<Topic[]>("/topics").then((r) => setTopics(r.data));
   }, [dataVersion]);
 
+  const topicName = (id?: string | null) => topics.find((t) => t.id === id)?.name;
+
   async function createConversation() {
     const { data } = await api.post<Conversation>("/conversations", {
-      title: title || "New conversation",
+      title: title.trim() || null, // empty → auto-named from the first message
       topic_id: topicId || null,
     });
     setCreating(false);
     setTitle("");
     setTopicId("");
     await loadConversations();
-    onSelect(data.id);
-  }
-
-  async function uploadAvatar(file: File) {
-    const fd = new FormData();
-    fd.append("file", file);
-    await api.post("/auth/me/avatar", fd);
-    await refreshUser();
+    onSelect(data);
   }
 
   return (
@@ -61,14 +60,28 @@ export function Sidebar({
           <Logo className="h-7 w-7" />
           <span className="font-semibold tracking-tight">FinSight</span>
         </div>
-        <Button onClick={() => setCreating((v) => !v)} className="px-2 py-1 text-xs">
-          + New
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button onClick={() => setCreating((v) => !v)} className="px-2 py-1 text-xs">
+            + New
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onCollapse}
+            className="px-2 py-1"
+            title="Collapse sidebar"
+          >
+            «
+          </Button>
+        </div>
       </div>
 
       {creating && (
         <div className="space-y-2 border-y border-neutral-200 p-3 dark:border-neutral-800">
-          <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input
+            placeholder="Title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
           <select
             value={topicId}
             onChange={(e) => setTopicId(e.target.value)}
@@ -91,15 +104,17 @@ export function Sidebar({
         {conversations.map((c) => (
           <button
             key={c.id}
-            onClick={() => onSelect(c.id)}
-            className={`block w-full truncate rounded-lg px-3 py-2 text-left text-sm ${
+            onClick={() => onSelect(c)}
+            className={`block w-full rounded-lg px-3 py-2 text-left ${
               selectedId === c.id
                 ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
                 : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
             }`}
           >
-            {c.title ?? "Conversation"}
-            {c.topic_id && <span className="ml-1 text-xs text-neutral-400">· topic</span>}
+            <div className="truncate text-sm">{c.title ?? "New conversation"}</div>
+            {c.topic_id && (
+              <div className="truncate text-xs text-neutral-400">📁 {topicName(c.topic_id)}</div>
+            )}
           </button>
         ))}
       </div>
@@ -114,32 +129,32 @@ export function Sidebar({
         <UsageBar refreshKey={dataVersion} />
 
         <div className="flex items-center gap-2 border-t border-neutral-200 p-3 dark:border-neutral-800">
-          <input
-            ref={avatarRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])}
-          />
-          <button onClick={() => avatarRef.current?.click()} title="Change avatar">
+          <button
+            onClick={() => setShowProfile(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
             {user?.avatar_url ? (
               <img src={user.avatar_url} className="h-8 w-8 rounded-full object-cover" />
             ) : (
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-indigo-600 text-sm text-white">
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-semibold text-white">
                 {(user?.full_name ?? user?.email ?? "?")[0]?.toUpperCase()}
               </div>
             )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-sm font-medium">
+                  {user?.full_name ?? "Account"}
+                </span>
+                {user && <TierBadge tier={user.tier} />}
+              </div>
+              <div className="truncate text-xs text-neutral-400">{user?.email}</div>
+            </div>
           </button>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{user?.full_name ?? "Account"}</div>
-            <div className="truncate text-xs text-neutral-400">{user?.email}</div>
-          </div>
           <ThemeToggle />
-          <Button variant="ghost" onClick={logout} className="px-2" title="Sign out">
-            ⏏
-          </Button>
         </div>
       </div>
+
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
     </aside>
   );
 }

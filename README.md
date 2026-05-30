@@ -1,4 +1,21 @@
-# FinSight — Multi-Agent Financial Research Assistant
+<p align="center">
+  <img src="frontend/public/logo.svg" width="88" alt="FinSight logo" />
+</p>
+
+<h1 align="center">FinSight</h1>
+
+<p align="center">
+  <b>Multi-Agent Financial Research Assistant</b><br/>
+  Grounded answers with citations — from your documents and the live web.
+</p>
+
+<p align="center">
+  <img alt="status" src="https://img.shields.io/badge/tests-passing-brightgreen" />
+  <img alt="python" src="https://img.shields.io/badge/python-3.12-blue" />
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-black" />
+</p>
+
+---
 
 > Submission for **Ready Tensor — Agentic AI Developer Certification (AAIDC), Module 2: Build Your Multi-Agent System**.
 

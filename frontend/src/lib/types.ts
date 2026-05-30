@@ -5,6 +5,7 @@ export interface User {
   avatar_url?: string | null;
   is_verified: boolean;
   auth_provider: string;
+  tier: string;
   storage_used_bytes: number;
   created_at: string;
 }

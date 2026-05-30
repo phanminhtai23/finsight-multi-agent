@@ -26,6 +26,12 @@ from app.schemas.qa import CitationOut
 router = APIRouter()
 
 
+def _short_title(text: str) -> str:
+    """A short, clean title derived from the first message."""
+    collapsed = " ".join(text.split())
+    return f"{collapsed[:40].rstrip()}…" if len(collapsed) > 40 else collapsed
+
+
 @router.post("", response_model=ConversationOut, status_code=201)
 async def create_conversation(
     body: ConversationCreate,
@@ -61,6 +67,8 @@ async def post_message(
     conversation = await repo.get(conversation_id)
     if conversation is None or conversation.user_id != user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not conversation.title:  # auto-name from the first message
+        conversation.title = _short_title(body.message)
 
     collection: str | None = None
     if conversation.topic_id is not None:
@@ -91,6 +99,8 @@ async def stream_message(
     conversation = await repo.get(conversation_id)
     if conversation is None or conversation.user_id != user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    if not conversation.title:  # auto-name from the first message
+        conversation.title = _short_title(body.message)
     collection = await _resolve_collection(conversation, topic_repo)
 
     async def event_stream():

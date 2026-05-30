@@ -49,6 +49,7 @@ class UserOut(BaseModel):
     avatar_url: str | None = None
     is_verified: bool
     auth_provider: str
+    tier: str
     storage_used_bytes: int
     created_at: datetime
 
