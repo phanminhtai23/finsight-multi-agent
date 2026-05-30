@@ -1,6 +1,10 @@
 import axios from "axios";
 import type { StreamEvent } from "./types";
 
+// In dev this is "/api/v1" (proxied by Vite to the backend). In production (e.g. Vercel)
+// set VITE_API_BASE_URL to your deployed backend, e.g. "https://api.example.com/api/v1".
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
 const ACCESS = "finsight_access";
 const REFRESH = "finsight_refresh";
 
@@ -21,7 +25,7 @@ export const tokens = {
   },
 };
 
-export const api = axios.create({ baseURL: "/api/v1" });
+export const api = axios.create({ baseURL: API_BASE });
 
 api.interceptors.request.use((config) => {
   const access = tokens.access;
@@ -35,7 +39,7 @@ async function doRefresh(): Promise<string | null> {
   const refresh = tokens.refresh;
   if (!refresh) return null;
   try {
-    const res = await axios.post("/api/v1/auth/refresh", { refresh_token: refresh });
+    const res = await axios.post(`${API_BASE}/auth/refresh`, { refresh_token: refresh });
     tokens.set(res.data.access_token);
     return res.data.access_token as string;
   } catch {
@@ -70,7 +74,7 @@ export async function streamChat(
   onEvent: (ev: StreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`/api/v1/conversations/${conversationId}/messages/stream`, {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
