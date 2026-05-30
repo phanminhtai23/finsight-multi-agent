@@ -1,0 +1,152 @@
+# FinSight — A Multi-Agent Financial Research Assistant with RAG, MCP Tools, and Grounded Citations
+
+> **AAIDC Module 2 — Build Your Multi-Agent System.**
+> Repository: https://github.com/phanminhtai23/finsight-multi-agent
+
+## TL;DR
+
+FinSight is a production-style, multi-agent system that answers financial questions about **any
+company** — from documents you upload (PDF / Word / scanned images) or from **live web sources**
+— and **always answers with inline citations** back to the exact source. A LangGraph supervisor
+coordinates six specialized agents over a retrieval-augmented-generation (RAG) layer backed by
+**Qdrant**, with tools exposed through a dedicated **Model Context Protocol (MCP)** server. Long
+jobs (document ingestion) run asynchronously so the user can keep chatting. The whole stack runs
+with one `docker compose up` and is verified end-to-end.
+
+## The Problem
+
+Reading financial reports is slow, and generic chatbots are untrustworthy for finance: they
+hallucinate figures and can't show *where* a number came from. FinSight targets exactly this gap
+— grounded, **cited** answers that combine a user's private documents with live market research.
+
+## What FinSight Does
+
+- **Upload any document** (PDF, DOCX, scanned image) → it is parsed, OCR'd, chunked, embedded,
+  and indexed automatically (in the background).
+- **Ask questions in natural language** → a team of agents retrieves evidence, analyzes it,
+  writes the answer, and a Critic verifies it is grounded and cited.
+- **Researches the live web** (via MCP tools) for companies not in your documents.
+- **Every claim is cited** `[n]`, mapping to a document page (deep-linked on Cloudinary) or a web URL.
+
+## Architecture
+
+```
+React (planned)  ──REST/WS──►  FastAPI  ──►  LangGraph supervisor + 6 agents
+                                   │                       │ tools (MCP client)
+                   Postgres (relational + LangGraph    MCP server :8001
+                   checkpointer) · Qdrant (vectors)    (web_search, fetch_url,
+                   · Redis (cache/pubsub/queue)         company_financials, calc)
+                   ARQ worker (async ingestion)   ·   Cloudinary (files)
+                   LangSmith (tracing + evaluation)
+```
+
+Design principles: **SOLID** (thin controllers, business logic in services, data access and tools
+behind `Protocol` interfaces, dependency injection), a **RESTful** versioned API, `ruff` + `pytest`,
+and a clean separation between relational state (Postgres + LangGraph checkpointer) and vectors
+(Qdrant). Full design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+## The Multi-Agent System (LangGraph)
+
+Six agents, supervisor-coordinated:
+
+| Agent | Role |
+|-------|------|
+| **Supervisor** | Triage — decide whether the question needs live external web data; route the flow. |
+| **Retrieval** | Hybrid search over the user's documents in Qdrant; returns cited evidence. |
+| **Market Research** | Live web/financial research via the **MCP** `web_search` tool. |
+| **Analyst** | Synthesize evidence; compute ratios, comparisons, trends. |
+| **Writer** | Compose the final answer with inline `[n]` citations. |
+| **Critic** | Verify every claim is grounded and cited; bounce back for a bounded revision loop. |
+
+```
+START → supervisor → retrieval → [market_research if needed] → analyst → writer → critic
+        → analyst (revise, ≤2) | END
+```
+
+State is persisted per conversation thread with LangGraph's **AsyncPostgresSaver**, so threads are
+durable and resumable.
+
+## Retrieval-Augmented Generation
+
+- **Multi-format ingestion**: PDF (PyMuPDF + table extraction via pdfplumber), DOCX, and scanned
+  images (OCR). A parser registry makes new formats additive (Open/Closed).
+- **Advanced chunking**: structure-aware + recursive splitting, **parent–child (small-to-big)**,
+  **Anthropic-style contextual retrieval**, and table-aware handling for financial statements.
+- **Hybrid retrieval**: dense vectors (Gemini `gemini-embedding-2`, 3072-d, cosine) fused with a
+  keyword (full-text) leg via **Reciprocal Rank Fusion**, then small-to-big context expansion.
+- **Citations**: each chunk carries document, page, and source URL; the Writer emits `[n]` markers
+  the Critic validates against the evidence.
+
+## Tools via MCP (≥ 3 tools, MCP communication)
+
+A dedicated **MCP server** (FastMCP, streamable-HTTP) exposes four tools; the Market Research agent
+is an **MCP client** that calls them over the protocol:
+
+- `web_search` — DuckDuckGo web search (no API key)
+- `company_financials` — focused search for a company's latest results
+- `fetch_url` — fetch and clean a web page's text
+- `financial_calculator` — safe arithmetic evaluation (AST-based)
+
+This satisfies both the **≥3 tools** requirement and the optional **MCP communication** enhancement.
+
+## Skills
+
+Reusable, self-contained capabilities any agent or client can invoke (behind a `TextGenerator`
+port): `summarize`, `translate`, `fact_check` — exposed via `GET/POST /api/v1/skills`.
+
+## Evaluation & Baseline Benchmarking
+
+`evals/run_eval.py` benchmarks FinSight against a **no-RAG baseline** on a labeled set of questions
+about the sample report, with **LangSmith** tracing enabled:
+
+- **Expected-answer recall** (RAG vs. baseline) — does RAG recover the ground-truth figures?
+- **Citation coverage** — fraction of answers carrying `[n]` citations.
+- **Groundedness** — an LLM-as-judge score that the answer is supported by the retrieved evidence.
+
+This demonstrates the optional *formal evaluation metrics and baseline benchmarking* enhancement.
+
+## Tech Stack
+
+LangGraph · LangChain · Google Gemini · FastAPI · **Qdrant** · PostgreSQL · Redis · ARQ ·
+Cloudinary · **MCP** · LangSmith · ruff · pytest · Docker Compose.
+
+## Reproduce
+
+```bash
+cp .env.example .env          # set GOOGLE_API_KEY (free: aistudio.google.com/apikey)
+docker compose up --build     # postgres, qdrant, redis, mcp, api, worker
+docker compose exec api alembic upgrade head
+
+# 1) upload a document  → async ingestion
+curl -X POST localhost:8000/api/v1/documents -F file=@sample_financial.pdf
+# 2) ask (document-grounded)
+curl -X POST localhost:8000/api/v1/conversations -d '{"title":"demo"}' -H 'content-type: application/json'
+curl -X POST localhost:8000/api/v1/conversations/<id>/messages \
+     -H 'content-type: application/json' -d '{"message":"What was Q3 2024 net revenue and gross margin?"}'
+# 3) benchmark
+docker compose exec api python -m evals.run_eval
+```
+
+## Sample Interaction
+
+> **Q:** What does NVIDIA do and what is its most recent reported quarterly revenue?
+>
+> **A:** NVIDIA is a technology company focused on AI products and data centers [4, 5]. For Q2
+> fiscal 2026, NVIDIA reported revenue of $46.7 billion, +56% year-over-year [3].
+>
+> *Sources:* [3] investor.nvidia.com · [2] Wikipedia · [4] TradingView · [5] Yahoo Finance
+
+The Supervisor routed to Market Research (live web needed), which called the MCP `web_search` tool;
+the Writer cited the sources and the Critic approved.
+
+## Limitations & Future Work
+
+- Keyword retrieval currently uses Qdrant full-text matching; a sparse-vector (BM25) leg would
+  strengthen hybrid ranking.
+- A cross-encoder reranker is pluggable but disabled by default to avoid heavy model downloads.
+- React frontend (chat UI + citation viewer) is the next milestone.
+
+## Repository & Quality
+
+- Code: https://github.com/phanminhtai23/finsight-multi-agent
+- 22 unit tests, `ruff`-clean, runs entirely via Docker Compose.

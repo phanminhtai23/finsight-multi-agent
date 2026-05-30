@@ -128,7 +128,7 @@ frontend/            React + Vite + TS
 - [x] M3 — Tools via MCP server (web_search, company_financials, fetch_url, financial_calculator)
 - [x] M4 — Async tasks (ARQ + Redis pub/sub + WebSocket)  *(ingestion path)*
 - [ ] M5 — React frontend
-- [ ] M6 — Skills, caching, evals, polish & publish
+- [x] M6 — Skills (`/skills`) + LangSmith evals (RAG vs baseline) + publication
 
 ## 📄 License
 

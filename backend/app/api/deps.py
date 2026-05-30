@@ -32,6 +32,8 @@ from app.services.agent_service import AgentService
 from app.services.events import EventPublisher
 from app.services.ingestion_service import IngestionService
 from app.services.qa_service import QAService
+from app.skills.base import SkillRegistry
+from app.skills.library import default_registry
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -130,3 +132,15 @@ async def get_agent_service(conversation_repo: ConversationRepoDep) -> AgentServ
 
 
 AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]
+
+_skill_registry: SkillRegistry | None = None
+
+
+def get_skill_registry() -> SkillRegistry:
+    global _skill_registry
+    if _skill_registry is None:
+        _skill_registry = default_registry()
+    return _skill_registry
+
+
+SkillRegistryDep = Annotated[SkillRegistry, Depends(get_skill_registry)]
