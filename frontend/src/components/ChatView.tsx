@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, streamChat } from "../lib/api";
 import type { Citation, Message } from "../lib/types";
-import { Button, Spinner } from "./ui";
+import { Markdown } from "./Markdown";
+import { Spinner } from "./ui";
 
 interface LocalMsg {
   role: string;
@@ -10,38 +11,66 @@ interface LocalMsg {
   thinking?: string;
 }
 
+const SUGGESTIONS = [
+  "Summarize the key figures",
+  "What are the main risks?",
+  "Is this worth investing in?",
+];
+
+function Avatar() {
+  return (
+    <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white shadow-sm">
+      F
+    </div>
+  );
+}
+
 function Sources({ citations }: { citations: Citation[] }) {
   if (!citations.length) return null;
   return (
-    <div className="mt-3 border-t border-neutral-200 pt-2 dark:border-neutral-800">
-      <div className="mb-1 text-xs font-medium text-neutral-400">Sources</div>
-      <ul className="space-y-1 text-xs">
-        {citations.map((c) => (
-          <li key={c.index} className="text-neutral-500">
-            <span className="text-indigo-600">[{c.index}]</span>{" "}
-            {c.url ? (
-              <a href={c.url} target="_blank" className="hover:underline">
-                {c.document_title ?? c.url}
-              </a>
-            ) : (
-              (c.document_title ?? c.document_id)
-            )}
-            {c.page != null && <span className="text-neutral-400"> · p.{c.page}</span>}
-          </li>
-        ))}
-      </ul>
+    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-neutral-200 pt-2.5 dark:border-neutral-700">
+      {citations.map((c) => {
+        const label = `[${c.index}] ${c.document_title ?? c.document_id}${
+          c.page != null ? ` · p.${c.page}` : ""
+        }`;
+        const cls =
+          "inline-flex max-w-[16rem] items-center gap-1 truncate rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-indigo-700";
+        return c.url ? (
+          <a key={c.index} href={c.url} target="_blank" className={cls} title={c.snippet}>
+            {label}
+          </a>
+        ) : (
+          <span key={c.index} className={cls} title={c.snippet}>
+            {label}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
 function Thinking({ text }: { text: string }) {
   return (
-    <details className="mb-2 rounded-lg bg-neutral-100 px-3 py-2 text-sm dark:bg-neutral-800/60">
-      <summary className="cursor-pointer text-xs font-medium text-neutral-500">
-        💭 Thinking
+    <details className="mb-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+      <summary className="cursor-pointer select-none text-xs font-medium text-neutral-500">
+        💭 Reasoning
       </summary>
-      <p className="mt-2 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{text}</p>
+      <p className="mt-2 whitespace-pre-wrap text-neutral-500 dark:text-neutral-400">{text}</p>
     </details>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+      <path
+        d="M12 19V5M5 12l7-7 7 7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -65,11 +94,17 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   useEffect(() => stopTimer, []);
 
   useEffect(() => {
-    api.get<Message[]>(`/conversations/${conversationId}/messages`).then((r) =>
-      setMessages(
-        r.data.map((m) => ({ role: m.role, content: m.content, citations: m.citations ?? undefined })),
-      ),
-    );
+    api
+      .get<Message[]>(`/conversations/${conversationId}/messages`)
+      .then((r) =>
+        setMessages(
+          r.data.map((m) => ({
+            role: m.role,
+            content: m.content,
+            citations: m.citations ?? undefined,
+          })),
+        ),
+      );
     setLiveThinking("");
     setLiveAnswer("");
   }, [conversationId]);
@@ -78,8 +113,8 @@ export function ChatView({ conversationId }: { conversationId: string }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, liveAnswer, liveThinking]);
 
-  async function send() {
-    const msg = input.trim();
+  async function send(text?: string) {
+    const msg = (text ?? input).trim();
     if (!msg || streaming) return;
     setInput("");
     setMessages((m) => [...m, { role: "user", content: msg }]);
@@ -113,87 +148,124 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-2xl space-y-4">
+    <div className="flex h-full flex-col bg-white dark:bg-neutral-950">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto max-w-3xl space-y-6">
           {messages.length === 0 && !streaming && (
-            <p className="pt-20 text-center text-sm text-neutral-400">
-              Ask anything about this topic's documents — or the live web.
-            </p>
+            <div className="flex h-[60vh] flex-col items-center justify-center text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-bold text-white shadow-lg shadow-indigo-600/20">
+                F
+              </div>
+              <h2 className="mt-5 text-xl font-semibold">How can I help?</h2>
+              <p className="mt-1 text-sm text-neutral-500">
+                Ask about this topic's documents — or the live web.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="rounded-full border border-neutral-200 px-3.5 py-1.5 text-sm text-neutral-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-indigo-700"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
+
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl bg-indigo-600 px-4 py-2 text-white">
+                <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-2.5 text-[15px] text-white shadow-sm">
                   {m.content}
                 </div>
               </div>
             ) : (
-              <div key={i} className="max-w-[90%]">
-                {m.thinking && <Thinking text={m.thinking} />}
-                <div className="whitespace-pre-wrap rounded-2xl bg-neutral-100 px-4 py-3 dark:bg-neutral-800">
-                  {m.content}
-                  {m.citations && <Sources citations={m.citations} />}
+              <div key={i} className="flex gap-3">
+                <Avatar />
+                <div className="min-w-0 flex-1">
+                  {m.thinking && <Thinking text={m.thinking} />}
+                  <div className="rounded-2xl rounded-tl-sm bg-neutral-100 px-4 py-3 text-[15px] dark:bg-neutral-800">
+                    <Markdown>{m.content}</Markdown>
+                    {m.citations && <Sources citations={m.citations} />}
+                  </div>
                 </div>
               </div>
             ),
           )}
 
           {streaming && (
-            <div className="max-w-[90%]">
-              <div className="mb-2 flex items-center gap-2 text-xs text-neutral-400">
-                <Spinner className="h-3.5 w-3.5" />
-                <span>
-                  {liveAnswer ? "Generating" : liveThinking ? "Thinking" : "Researching"}…
-                </span>
-                <span className="font-mono tabular-nums text-neutral-500">
-                  {elapsed.toFixed(1)}s
-                </span>
+            <div className="flex gap-3">
+              <Avatar />
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center gap-2 text-xs text-neutral-400">
+                  <Spinner className="h-3.5 w-3.5" />
+                  <span>
+                    {liveAnswer ? "Generating" : liveThinking ? "Thinking" : "Researching"}…
+                  </span>
+                  <span className="font-mono tabular-nums text-neutral-500">
+                    {elapsed.toFixed(1)}s
+                  </span>
+                </div>
+                {liveThinking && (
+                  <div className="mb-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+                    <div className="text-xs font-medium text-neutral-500">💭 Reasoning…</div>
+                    <p className="mt-1 whitespace-pre-wrap text-neutral-500 dark:text-neutral-400">
+                      {liveThinking}
+                    </p>
+                  </div>
+                )}
+                {liveAnswer && (
+                  <div className="rounded-2xl rounded-tl-sm bg-neutral-100 px-4 py-3 text-[15px] dark:bg-neutral-800">
+                    <Markdown>{liveAnswer}</Markdown>
+                  </div>
+                )}
               </div>
-              {liveThinking && (
-                <div className="mb-2 rounded-lg bg-neutral-100 px-3 py-2 text-sm dark:bg-neutral-800/60">
-                  <div className="text-xs font-medium text-neutral-500">💭 Thinking…</div>
-                  <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
-                    {liveThinking}
-                  </p>
-                </div>
-              )}
-              {liveAnswer && (
-                <div className="whitespace-pre-wrap rounded-2xl bg-neutral-100 px-4 py-3 dark:bg-neutral-800">
-                  {liveAnswer}
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
 
-      <div className="border-t border-neutral-200 p-3 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <label className="flex select-none items-center gap-1 text-xs text-neutral-500">
-            <input
-              type="checkbox"
-              checked={thinking}
-              onChange={(e) => setThinking(e.target.checked)}
+      {/* Composer */}
+      <div className="px-4 pb-4 pt-2">
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-end gap-1.5 rounded-2xl border border-neutral-300 bg-white p-2 shadow-sm transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/15 dark:border-neutral-700 dark:bg-neutral-900">
+            <textarea
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Ask anything…"
+              className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-neutral-400"
             />
-            Thinking
-          </label>
-          <textarea
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            placeholder="Send a message…"
-            className="max-h-40 flex-1 resize-none rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
-          />
-          <Button onClick={send} disabled={streaming || !input.trim()}>
-            {streaming ? "…" : "Send"}
-          </Button>
+            <button
+              onClick={() => setThinking((v) => !v)}
+              title="Toggle step-by-step reasoning"
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                thinking
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                  : "text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              }`}
+            >
+              💭 Thinking
+            </button>
+            <button
+              onClick={() => send()}
+              disabled={streaming || !input.trim()}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
+            >
+              {streaming ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <SendIcon />}
+            </button>
+          </div>
+          <p className="mt-1.5 text-center text-[11px] text-neutral-400">
+            FinSight can make mistakes — verify important figures.
+          </p>
         </div>
       </div>
     </div>
