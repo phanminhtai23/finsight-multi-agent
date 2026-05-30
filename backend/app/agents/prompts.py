@@ -35,6 +35,29 @@ Evidence:
 
 Final answer (with inline [n] citations):"""
 
+THINKING = """You are FinSight reasoning through a question step by step.
+Think out loud briefly: restate what is asked, note which evidence is relevant, and how the
+figures combine. Keep it short (3-6 lines). Do NOT write the final answer yet.
+
+Question: {question}
+
+Evidence:
+{evidence}
+
+Reasoning:"""
+
+STREAM_ANSWER = """You are FinSight, a financial research assistant. Answer the question using
+ONLY the numbered evidence. Cite every factual claim with its evidence number like [1], [2].
+Be concise and precise with figures. If the evidence is insufficient, say so plainly.
+
+Question: {question}
+
+Evidence:
+{evidence}
+
+Answer (with inline [n] citations):"""
+
+
 CRITIC = """You are the Critic. Check the draft answer against the evidence: every factual
 claim must be supported by and cite the evidence; no fabricated figures.
 

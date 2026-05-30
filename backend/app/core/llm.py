@@ -4,6 +4,7 @@ Free tier via Google AI Studio (set ``GOOGLE_API_KEY``). The adapters expose the
 objects through the narrow ``Embedder`` / ``TextGenerator`` ports the RAG layer depends on.
 """
 
+from collections.abc import AsyncIterator
 from functools import lru_cache
 
 from langchain_core.embeddings import Embeddings
@@ -80,5 +81,18 @@ def get_embedder() -> GeminiEmbedder:
 
 
 @lru_cache
+def get_chat_model() -> BaseChatModel:
+    return build_chat_model()
+
+
+@lru_cache
 def get_text_generator() -> GeminiTextGenerator:
-    return GeminiTextGenerator(build_chat_model())
+    return GeminiTextGenerator(get_chat_model())
+
+
+async def stream_chat(model: BaseChatModel, prompt: str) -> AsyncIterator[str]:
+    """Yield answer text chunks as the model generates them (token streaming)."""
+    async for chunk in model.astream([HumanMessage(content=prompt)]):
+        text = GeminiTextGenerator._to_text(chunk.content)
+        if text:
+            yield text

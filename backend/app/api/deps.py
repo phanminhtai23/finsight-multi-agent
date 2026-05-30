@@ -21,8 +21,8 @@ from app.agents.mcp_web import McpWebSearch
 from app.core.cache import create_redis_pool
 from app.core.checkpointer import get_checkpointer
 from app.core.config import Settings, get_settings
-from app.core.db import get_session
-from app.core.llm import get_embedder, get_text_generator
+from app.core.db import get_session, get_sessionmaker
+from app.core.llm import get_chat_model, get_embedder, get_text_generator
 from app.core.qdrant import get_qdrant_client
 from app.core.queue import get_arq_pool
 from app.core.security import decode_token
@@ -40,6 +40,7 @@ from app.services.auth_service import AuthService
 from app.services.events import EventPublisher
 from app.services.ingestion_service import IngestionService
 from app.services.qa_service import QAService
+from app.services.streaming_chat_service import StreamingChatService
 from app.services.topic_service import TopicService
 from app.skills.base import SkillRegistry
 from app.skills.library import default_registry
@@ -146,6 +147,19 @@ async def get_agent_service(conversation_repo: ConversationRepoDep) -> AgentServ
 
 
 AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]
+
+
+def get_streaming_chat_service() -> StreamingChatService:
+    settings = get_settings()
+    return StreamingChatService(
+        _make_retriever,
+        get_chat_model(),
+        McpWebSearch(settings.mcp_server_url),
+        get_sessionmaker(),
+    )
+
+
+StreamingChatServiceDep = Annotated[StreamingChatService, Depends(get_streaming_chat_service)]
 
 _skill_registry: SkillRegistry | None = None
 

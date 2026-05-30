@@ -15,7 +15,7 @@ class ConversationCreate(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
-    document_ids: list[uuid.UUID] | None = None
+    thinking: bool = False
 
 
 class ChatResponse(BaseModel):

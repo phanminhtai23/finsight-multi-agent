@@ -1,14 +1,17 @@
 """Conversation endpoints — create (optionally pinned to a topic) and chat via the graph."""
 
+import json
 import uuid
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
     AgentServiceDep,
     ConversationRepoDep,
     CurrentUserDep,
     SessionDep,
+    StreamingChatServiceDep,
     TopicRepoDep,
 )
 from app.schemas.conversation import (
@@ -66,6 +69,37 @@ async def post_message(
 
     answer, citations = await agents.chat(conversation_id, body.message, collection=collection)
     return ChatResponse(answer=answer, citations=[CitationOut(**c) for c in citations])
+
+
+async def _resolve_collection(conversation, topic_repo: TopicRepoDep) -> str | None:  # noqa: ANN001
+    if conversation.topic_id is None:
+        return None
+    topic = await topic_repo.get(conversation.topic_id)
+    return topic.qdrant_collection if topic else None
+
+
+@router.post("/{conversation_id}/messages/stream")
+async def stream_message(
+    conversation_id: uuid.UUID,
+    body: ChatRequest,
+    user: CurrentUserDep,
+    repo: ConversationRepoDep,
+    topic_repo: TopicRepoDep,
+    streamer: StreamingChatServiceDep,
+) -> StreamingResponse:
+    """Stream the answer token-by-token (SSE). Set ``thinking`` to also stream reasoning."""
+    conversation = await repo.get(conversation_id)
+    if conversation is None or conversation.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    collection = await _resolve_collection(conversation, topic_repo)
+
+    async def event_stream():
+        async for event in streamer.stream(
+            conversation_id, body.message, collection=collection, thinking=body.thinking
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.get("/{conversation_id}/messages", response_model=list[MessageOut])
