@@ -37,15 +37,53 @@ hallucinate figures and can't show *where* a number came from. FinSight targets 
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    U["🖥️ React UI (Vite + TS)"] -->|"REST · SSE · WebSocket"| API["⚡ FastAPI<br/>(RESTful · SOLID · DI)"]
+
+    subgraph AGENTS["🤖 LangGraph multi-agent graph"]
+        direction TB
+        SUP(["🧭 Supervisor<br/>triage &amp; route"])
+        RET["📚 Retrieval<br/>(RAG)"]
+        MR["🌐 Market Research"]
+        AN["📊 Analyst"]
+        WR["✍️ Writer<br/>+ citations"]
+        CR["🔎 Critic<br/>grounding check"]
+        SUP --> RET --> AN --> WR --> CR
+        SUP --> MR --> AN
+        CR -.->|"revise ≤2"| AN
+    end
+    API --> SUP
+
+    subgraph DATA["🗄️ Datastores"]
+        QD[("Qdrant<br/>vectors · per-topic")]
+        PG[("Postgres<br/>relational + checkpointer")]
+        RD[("Redis<br/>cache · pubsub · queue")]
+    end
+
+    subgraph EXT["🧰 Tools &amp; services"]
+        MCP["🔌 MCP server :8001<br/>web_search · fetch_url<br/>company_financials · calculator"]
+        CL["☁️ Cloudinary<br/>raw files"]
+        LS["📈 LangSmith<br/>tracing &amp; eval"]
+    end
+
+    RET --> QD
+    MR -->|"MCP client"| MCP
+    API --> PG
+    API --> RD
+    API --> WK["⏳ ARQ worker<br/>async ingestion"]
+    WK --> CL
+    WK --> QD
+    WK -.->|"progress · pubsub"| RD
+    API -.->|"trace"| LS
 ```
-React UI (Vite+TS) ─REST/SSE─►  FastAPI  ──►  LangGraph supervisor + 6 agents
-                                   │                       │ tools (MCP client)
-                   Postgres (relational + LangGraph    MCP server :8001
-                   checkpointer) · Qdrant (vectors)    (web_search, fetch_url,
-                   · Redis (cache/pubsub/queue)         company_financials, calc)
-                   ARQ worker (async ingestion)   ·   Cloudinary (files)
-                   LangSmith (tracing + evaluation)
-```
+
+**Request flow.** The UI calls FastAPI over REST; chat answers stream back over **SSE** (tokens,
+thinking, citations, charts, tool names) and ingestion progress over **WebSocket**. FastAPI invokes
+the **LangGraph** graph, whose Supervisor routes to the right agents; the Retrieval agent hits
+**Qdrant**, the Market Research agent calls the **MCP server** as a client. Uploads are handled
+out-of-band by an **ARQ worker** that parses, chunks, embeds and indexes into Qdrant while the user
+keeps chatting.
 
 Design principles: **SOLID** (thin controllers, business logic in services, data access and tools
 behind `Protocol` interfaces, dependency injection), a **RESTful** versioned API, `ruff` + `pytest`,
