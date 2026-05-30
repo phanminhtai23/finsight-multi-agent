@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthShell } from "../components/AuthShell";
+import { GoogleSignIn } from "../components/GoogleSignIn";
 import { Button, Input } from "../components/ui";
 import { api } from "../lib/api";
 
@@ -73,6 +74,7 @@ export default function Register() {
           {busy ? "Creating…" : "Create account"}
         </Button>
       </form>
+      <GoogleSignIn />
       <p className="mt-4 text-center text-sm text-neutral-500">
         Already have an account?{" "}
         <Link to="/login" className="text-indigo-600 hover:underline">

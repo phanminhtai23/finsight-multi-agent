@@ -73,7 +73,8 @@ class Settings(BaseSettings):
 
     @property
     def google_oauth_enabled(self) -> bool:
-        return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
+        # The ID-token (GIS) flow only needs the client id to validate the token audience.
+        return bool(self.google_oauth_client_id)
 
     # --- LLM / embeddings (Google Gemini free tier via AI Studio) ---
     llm_provider: Literal["google"] = "google"

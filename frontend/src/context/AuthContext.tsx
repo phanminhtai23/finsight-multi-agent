@@ -6,6 +6,7 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   setUser: (user: User) => void;
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthState>({
   user: null,
   loading: true,
   login: async () => {},
+  loginWithGoogle: async () => {},
   logout: () => {},
   refreshUser: async () => {},
   setUser: () => {},
@@ -46,13 +48,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUser();
   }
 
+  async function loginWithGoogle(idToken: string) {
+    const { data } = await api.post("/auth/google", { id_token: idToken });
+    tokens.set(data.access_token, data.refresh_token);
+    await refreshUser();
+  }
+
   function logout() {
     tokens.clear();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, setUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, loginWithGoogle, logout, refreshUser, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
