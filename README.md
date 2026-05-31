@@ -19,6 +19,10 @@
 
 > Submission for **Ready Tensor — Agentic AI Developer Certification (AAIDC), Module 2: Build Your Multi-Agent System**.
 
+> 🚀 **Live demo:** **https://finsightagent.tech** — try it now (no install).
+> 🛡️ **Project 3 (Module 3 — Agentic AI in Production)** hardens this system with reliability, safety guardrails, observability, CI/CD that **auto-tests frontend + backend** and **auto-deploys**, plus a live deployment on a DigitalOcean droplet + Vercel:
+> 👉 **https://github.com/phanminhtai23/finsight-agentic-production**
+
 FinSight is a production-style, multi-agent system that answers financial questions about **any company** — either from documents you upload (PDF, Word, scanned images) or from live web/financial sources — and **always answers with inline citations** back to the exact source page.
 
 It is built around a LangGraph supervisor orchestrating a team of specialized agents, a retrieval-augmented-generation (RAG) layer with advanced chunking and hybrid search, tools exposed through a dedicated **MCP server**, and an async task engine that lets you keep chatting while long jobs (document ingestion, deep research) run in the background.
