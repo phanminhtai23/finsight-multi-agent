@@ -22,7 +22,7 @@ flowchart TD
     API --> PG[("Postgres<br/>docs · convos · tasks<br/>+ LangGraph checkpointer")]
     API --> RD[("Redis<br/>cache · pub/sub · ARQ queue")]
     WK --> QD
-    WK --> CL["Cloudinary<br/>raw files + page images"]
+    WK --> CL["Cloudinary<br/>raw files"]
     WK -.->|"progress"| RD
 
     API -.->|"trace + eval"| LS["LangSmith"]
@@ -58,7 +58,7 @@ flowchart TD
     CR -->|"approved"| DONE(["END"])
     CR -.->|"revise (≤2)"| AN
 
-    ING["Ingestion pipeline<br/>parse → OCR → chunk → embed → index"]:::oob -.->|"out-of-band, on upload"| RET
+    ING["Ingestion pipeline<br/>parse → chunk → embed → index"]:::oob -.->|"out-of-band, on upload"| RET
     classDef oob fill:#f6f6f6,stroke:#bbb,stroke-dasharray:3 3;
 ```
 
@@ -73,7 +73,7 @@ flowchart TD
 | Writer | Compose the final answer with inline `[n]` citation markers | — |
 | Critic | Verify every claim is grounded and cited; bounce back if not | — |
 
-> The Ingestion Pipeline (document parsing, OCR, chunking, embedding, indexing) is a
+> The Ingestion Pipeline (document parsing, chunking, embedding, indexing) is a
 > background pipeline — not an agent in the graph.
 
 ---
@@ -83,10 +83,10 @@ flowchart TD
 ### 3.1 Ingestion (multi-modal, runs as a background task)
 
 ```
-Upload (PDF / DOCX / image) ─► store raw file on Cloudinary (public_id, secure_url)
+Upload (PDF / DOCX / TXT) ─► store raw file on Cloudinary (public_id, secure_url)
    ─► document(status=PROCESSING)
    ─► enqueue ARQ ingestion job
-        ├─ parse:  PDF→PyMuPDF/unstructured · DOCX→python-docx · image→OCR
+        ├─ parse:  PDF→PyMuPDF/unstructured · DOCX→python-docx · TXT→plain text reader
         ├─ extract tables separately (financial statements keep row/col headers)
         ├─ capture locating metadata: page, bbox, section_title
         ├─ chunk  (see 3.2)

@@ -10,7 +10,7 @@
 ## TL;DR
 
 FinSight is a production-style, multi-agent system that answers financial questions about **any
-company** — from documents you upload (PDF / Word / scanned images) or from **live web sources**
+company** — from documents you upload (PDF / Word / TXT) or from **live web sources**
 — and **always answers with inline citations** back to the exact source. A LangGraph supervisor
 coordinates six specialized agents over a retrieval-augmented-generation (RAG) layer backed by
 **Qdrant**, with tools exposed through a dedicated **Model Context Protocol (MCP)** server. Long
@@ -27,8 +27,8 @@ hallucinate figures and can't show *where* a number came from. FinSight targets 
 
 ## What FinSight Does
 
-- **Upload any document** (PDF, DOCX, scanned image) → it is parsed, OCR'd, chunked, embedded,
-  and indexed automatically (in the background).
+- **Upload any document** (PDF, DOCX, TXT) → it is parsed, chunked, embedded, and indexed
+  automatically (in the background).
 - **Ask questions in natural language** → a team of agents retrieves evidence, analyzes it,
   writes the answer, and a Critic verifies it is grounded and cited.
 - **Researches the live web** (via MCP tools) for companies not in your documents.
@@ -115,10 +115,41 @@ START → supervisor → retrieval → [market_research if needed] → analyst �
 State is persisted per conversation thread with LangGraph's **AsyncPostgresSaver**, so threads are
 durable and resumable.
 
+## Human-in-the-Loop Integration
+
+FinSight is designed so that the human remains in control at every step. The agents are tools the
+user wields — not autonomous actors that fetch and conclude without oversight.
+
+### What users directly control
+
+| Control point | How it works |
+|---------------|-------------|
+| **Knowledge base curation** | Users create named *topics* and upload their own documents (PDF, DOCX, TXT). The Retrieval agent only searches collections the user has explicitly created and pinned to the conversation. The human decides what private data the agents can see. |
+| **Query formulation & redirection** | Users phrase every question. If an answer is off-target they can rephrase, add constraints ("only use my uploaded documents, ignore web results"), or redirect to a different aspect — the Supervisor re-routes accordingly. |
+| **Source verification** | Every factual claim carries an inline `[n]` citation. Clicking a citation opens the exact source page (deep-linked on Cloudinary for uploaded documents, or the original URL for web results). Users can accept or reject the agent's interpretation by checking the primary source. |
+| **Thinking transparency** | A **Thinking toggle** streams the Supervisor's internal reasoning chain live to the UI — users can watch which agents were invoked, in what order, and why. This makes it easy to spot a reasoning path that seems incorrect before acting on the answer. |
+| **Topic scoping** | Users pin one or more topics to a conversation. This bounds the Retrieval agent's search space, letting users isolate research to a single company or reporting period. |
+| **Async task monitoring** | Long-running jobs (document ingestion, deep research) run in a background task panel with live WebSocket progress. Users can keep chatting, start other tasks, and cancel or ignore jobs independently. |
+
+### The bounded revision loop
+
+After the Writer produces an answer, the **Critic** agent independently checks that every claim is
+grounded in the retrieved evidence and carries a citation. If the check fails, the Critic returns
+the answer to the Analyst with specific instructions — this loop runs **at most twice** to prevent
+infinite correction cycles. A user who finds the answer still unsatisfactory can follow up with a
+new question or rephrase, triggering a fresh graph run.
+
+### Design intent
+
+The citation-first design means users are never asked to trust the system blindly. Every answer is
+a *hypothesis with evidence*: the human validates the sources, not the system's word. Topic
+management keeps users in control of the knowledge domain, and the thinking view keeps the
+agent workflow auditable.
+
 ## Retrieval-Augmented Generation
 
-- **Multi-format ingestion**: PDF (PyMuPDF + table extraction via pdfplumber), DOCX, and scanned
-  images (OCR). A parser registry makes new formats additive (Open/Closed).
+- **Multi-format ingestion**: PDF (PyMuPDF + table extraction via pdfplumber), DOCX, and TXT.
+  A parser registry makes new formats additive (Open/Closed).
 - **Advanced chunking**: structure-aware + recursive splitting, **parent–child (small-to-big)**,
   **Anthropic-style contextual retrieval**, and table-aware handling for financial statements.
 - **Hybrid retrieval**: dense vectors (Gemini `gemini-embedding-2`, 3072-d, cosine) fused with a
@@ -203,6 +234,40 @@ the Writer cited the sources and the Critic approved.
 - A cross-encoder reranker is pluggable but disabled by default to avoid heavy model downloads.
 - Gemini's free tier is rate-limited; throttled replies are surfaced in the UI with a retry hint.
 - The whole stack runs locally via Docker Compose; cloud hosting is left as future work.
+
+## Maintenance & Support
+
+### Versioning
+
+FinSight uses milestone-based versioning aligned to the AAIDC course modules:
+
+| Version | Repository | Status | Notes |
+|---------|-----------|--------|-------|
+| **v1.0 — Module 2** | [finsight-multi-agent](https://github.com/phanminhtai23/finsight-multi-agent) | Stable | This submission — multi-agent RAG, MCP tools, React UI, Docker Compose. |
+| **v2.0 — Module 3** | [finsight-agentic-production](https://github.com/phanminhtai23/finsight-agentic-production) | Active | Production hardening: reliability, safety guardrails, observability, CI/CD (auto-test + auto-deploy), live at [finsightagent.tech](https://finsightagent.tech). |
+
+The Module 2 repository is the reference implementation; Module 3 is the maintained, deployed
+successor that builds directly on it.
+
+### Update frequency
+
+- **Bug fixes** — addressed on an as-needed basis via pull request to the relevant branch.
+- **Feature additions** — follow course milestone cadence; each milestone closes an increment and
+  tags a release.
+- **Dependency updates** — `ruff`, LangGraph, and LangChain receive periodic upgrades; changes are
+  validated by the `pytest` suite before merging.
+
+### Support channels
+
+| Channel | Purpose |
+|---------|---------|
+| **GitHub Issues** — [finsight-multi-agent/issues](https://github.com/phanminhtai23/finsight-multi-agent/issues) | Bug reports, feature requests, setup questions for the Module 2 codebase. |
+| **GitHub Issues** — [finsight-agentic-production/issues](https://github.com/phanminhtai23/finsight-agentic-production/issues) | Issues related to the production deployment (Module 3). |
+| **Live demo** — [finsightagent.tech](https://finsightagent.tech) | Try the production version without installing anything — useful for verifying behavior before filing a bug. |
+| **Swagger UI** — `/docs` (when running locally) | Interactive API documentation for all REST endpoints; available at `http://localhost:8000/docs` after `docker compose up`. |
+
+For general questions about the AAIDC programme contact the Ready Tensor team through the course
+platform.
 
 ## Repository & Quality
 

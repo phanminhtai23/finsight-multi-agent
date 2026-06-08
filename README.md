@@ -23,7 +23,7 @@
 > 🛡️ **Project 3 (Module 3 — Agentic AI in Production)** hardens this system with reliability, safety guardrails, observability, CI/CD that **auto-tests frontend + backend** and **auto-deploys**, plus a live deployment on a DigitalOcean droplet + Vercel:
 > 👉 **https://github.com/phanminhtai23/finsight-agentic-production**
 
-FinSight is a production-style, multi-agent system that answers financial questions about **any company** — either from documents you upload (PDF, Word, scanned images) or from live web/financial sources — and **always answers with inline citations** back to the exact source page.
+FinSight is a production-style, multi-agent system that answers financial questions about **any company** — either from documents you upload (PDF, Word, TXT) or from live web/financial sources — and **always answers with inline citations** back to the exact source page.
 
 It is built around a LangGraph supervisor orchestrating a team of specialized agents, a retrieval-augmented-generation (RAG) layer with advanced chunking and hybrid search, tools exposed through a dedicated **MCP server**, and an async task engine that lets you keep chatting while long jobs (document ingestion, deep research) run in the background.
 
@@ -64,7 +64,7 @@ cd frontend && npm install && npm run dev   # → http://localhost:5173
 ## ✨ Key Features
 
 - **Multi-agent orchestration (LangGraph supervisor)** — six focused agents (Supervisor, Retrieval, Market Research, Analyst, Writer, Critic) coordinating to solve a task.
-- **RAG over your own documents** — upload PDF / DOCX / scanned images; FinSight parses, OCRs, chunks and indexes them into a **Qdrant** vector store.
+- **RAG over your own documents** — upload PDF / DOCX / TXT; FinSight parses, chunks and indexes them into a **Qdrant** vector store.
 - **Advanced chunking** — layout-aware + semantic + parent–child + Anthropic-style *contextual retrieval*, with table-aware handling for financial statements.
 - **Hybrid retrieval + reranking** — vector search fused with full-text (BM25-like) search, then cross-encoder reranking.
 - **Citations everywhere** — every claim is traceable to a document, page and region (deep-link to the file on Cloudinary).
@@ -116,6 +116,28 @@ flowchart TD
     WK --> QD
     API -.->|"trace"| LS
 ```
+
+## 🤖 Agent Roles
+
+Six specialized agents work together under a LangGraph supervisor pattern:
+
+| Agent | Responsibility | Tools available |
+|-------|----------------|-----------------|
+| **Supervisor** | Triages every incoming query: determines whether the question can be answered from uploaded documents alone or needs live web data, then routes the conversation to the correct downstream agents. Decides when the task is complete. | — |
+| **Retrieval** | Performs hybrid search (dense vector + keyword / full-text) over the user's private Qdrant collections. Returns ranked evidence chunks with citation metadata (document, page, section, URL). | RAG retriever (internal) |
+| **Market Research** | Fetches live financial data and web content for companies not covered by uploaded documents. Acts as an MCP client, calling the dedicated MCP server tools over the protocol. | `web_search`, `fetch_url`, `company_financials` |
+| **Analyst** | Synthesizes evidence returned by Retrieval and/or Market Research. Computes ratios, builds comparisons, identifies trends, and prepares a structured analytical summary for the Writer. | `financial_calculator` |
+| **Writer** | Composes the final user-facing answer in clear prose. Inserts inline `[n]` citation markers that map every claim back to a source document page or web URL. | — |
+| **Critic** | Verifies that every factual claim in the Writer's answer has a matching citation in the retrieved evidence. If not, bounces the answer back to the Analyst for revision (up to 2 rounds), then approves for delivery. | — |
+
+```
+START → Supervisor → Retrieval → [Market Research if needed]
+      → Analyst → Writer → Critic → END
+                            ↑___revise (≤2)__|
+```
+
+> The Ingestion Pipeline (document parsing, chunking, embedding, indexing) runs as a
+> background ARQ worker — it is not an agent in the conversation graph.
 
 ## 🧰 Tech Stack
 
@@ -251,4 +273,8 @@ frontend/            React + Vite + TS
 
 ## 📄 License
 
-MIT
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for the full text.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+this software, provided the original copyright notice and this permission notice are included in
+all copies or substantial portions of the software.
